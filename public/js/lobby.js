@@ -20,6 +20,9 @@
     shape: document.getElementById('shape'),
     shapeHint: document.getElementById('shape-hint'),
     opponent: document.getElementById('opponent'),
+    customSize: document.getElementById('custom-size'),
+    customW: document.getElementById('custom-w'),
+    customH: document.getElementById('custom-h'),
     authModal: document.getElementById('auth-modal'),
     authForm: document.getElementById('auth-form'),
     authTitle: document.getElementById('auth-title'),
@@ -31,6 +34,7 @@
   function shapeHintText(s) {
     if (s === 'octagon') return 'Achteck 10x10: 4 Eckfelder fehlen, Figuren können in die Randspuren ausweichen. Unbewertet.';
     if (s === 'cross') return 'Kreuz 12x12: Standard-Aufstellung in der Mitte, Bauern wandeln am tatsächlichen Brettrand (= längere Partien in den Armen). Unbewertet.';
+    if (s === 'custom') return 'Benutzerdefiniertes Rechteck: 8 Standard-Figuren werden zentriert in der Heimreihe platziert. Bauern wandeln am Brettrand. Unbewertet.';
     return '';
   }
   function updateShapeHint() {
@@ -43,9 +47,19 @@
     els.rated.disabled = (v !== 'standard') || isBot || !user;
     if (isBot) els.visibility.value = 'private';
     els.visibility.disabled = isBot;
+    els.customSize.classList.toggle('hidden', v !== 'custom');
   }
   els.shape.addEventListener('change', updateShapeHint);
   els.opponent.addEventListener('change', updateShapeHint);
+
+  function clampCustomDim(input, min, max) {
+    const n = parseInt(input.value, 10);
+    if (!Number.isFinite(n)) input.value = String(min);
+    else if (n < min) input.value = String(min);
+    else if (n > max) input.value = String(max);
+  }
+  els.customW.addEventListener('change', () => clampCustomDim(els.customW, 8, 26));
+  els.customH.addEventListener('change', () => clampCustomDim(els.customH, 4, 20));
 
   els.nick.value = Api.getName();
   els.nick.addEventListener('input', () => Api.setName(els.nick.value));
@@ -144,7 +158,7 @@
       return;
     }
     Api.setName(name);
-    socket.emit('room:create', {
+    const payload = {
       name: name,
       visibility: els.visibility.value,
       timeControl: timeControl(),
@@ -152,7 +166,16 @@
       seat: els.seat.value,
       shape: els.shape.value,
       opponent: els.opponent.value,
-    }, (res) => {
+    };
+    if (els.shape.value === 'custom') {
+      clampCustomDim(els.customW, 8, 26);
+      clampCustomDim(els.customH, 4, 20);
+      payload.customSize = {
+        width: parseInt(els.customW.value, 10),
+        height: parseInt(els.customH.value, 10),
+      };
+    }
+    socket.emit('room:create', payload, (res) => {
       if (res.error) { alert(res.error); return; }
       Api.saveSeat(res.code, res.color, res.seatToken);
       location.href = '/game.html?code=' + encodeURIComponent(res.code);
@@ -181,7 +204,7 @@
       left.innerHTML = '<strong>' + escapeHtml(r.host) + '</strong>' +
         (r.hostRating ? ' <span class="pill">' + r.hostRating + '</span>' : '') +
         ' <span class="pill">' + formatTC(r.timeControl) + '</span>' +
-        (r.shape && r.shape !== 'standard' ? ' <span class="pill">' + shapeLabel(r.shape) + '</span>' : '') +
+        (r.shape && r.shape !== 'standard' ? ' <span class="pill">' + shapeLabel(r.shape, r.shapeOpts) + '</span>' : '') +
         (r.rated ? ' <span class="pill">bewertet</span>' : '');
       const btn = document.createElement('button');
       btn.className = 'btn btn-primary';
@@ -203,9 +226,10 @@
     return Math.round(tc.initial / 60) + '+' + tc.increment;
   }
 
-  function shapeLabel(s) {
+  function shapeLabel(s, opts) {
     if (s === 'octagon') return 'Achteck';
     if (s === 'cross') return 'Kreuz';
+    if (s === 'custom') return opts ? opts.width + 'x' + opts.height : 'Custom';
     return s;
   }
 

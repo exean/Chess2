@@ -58,7 +58,16 @@
             <option value="standard" selected>Standard 8x8</option>
             <option value="octagon">Achteck 10x10</option>
             <option value="cross">Kreuz 12x12</option>
+            <option value="custom">Benutzerdefiniert</option>
           </select>
+        </label>
+      </div>
+      <div class="row hidden" id="custom-size">
+        <label>Spalten (min 8)
+          <input type="number" id="custom-w" min="8" max="26" step="1" value="8" inputmode="numeric" />
+        </label>
+        <label>Reihen (min 4)
+          <input type="number" id="custom-h" min="4" max="20" step="1" value="8" inputmode="numeric" />
         </label>
       </div>
       <div class="row">

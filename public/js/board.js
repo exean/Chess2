@@ -13,8 +13,9 @@
       this.orientation = (opts && opts.orientation) || 'w';
       this.onMoveAttempt = (opts && opts.onMoveAttempt) || (() => {});
       this.onPromotion = (opts && opts.onPromotion) || ((from, to, finalize) => finalize('q'));
-      this.shapeName = (opts && opts.shape) || 'standard';
-      this.engine = new (window.ChessEngine.Chess)({ shape: this.shapeName });
+      this.shapeArg = (opts && opts.shape) || 'standard';
+      this.shapeName = typeof this.shapeArg === 'object' ? this.shapeArg.kind : this.shapeArg;
+      this.engine = new (window.ChessEngine.Chess)({ shape: this.shapeArg });
       this.selected = null;
       this.legalTargets = [];
       this.lastMove = null;
@@ -23,10 +24,14 @@
       this._build();
     }
 
-    setShape(shapeName) {
-      if (shapeName === this.shapeName) return;
-      this.shapeName = shapeName;
-      this.engine = new (window.ChessEngine.Chess)({ shape: this.shapeName });
+    setShape(shapeArg) {
+      // Compare structurally so {kind:'custom',width:10,height:6} differs from
+      // the same with width:12 - both have shapeName='custom' but distinct dims.
+      const sameAsCurrent = JSON.stringify(shapeArg) === JSON.stringify(this.shapeArg);
+      if (sameAsCurrent) return;
+      this.shapeArg = shapeArg;
+      this.shapeName = typeof shapeArg === 'object' ? shapeArg.kind : shapeArg;
+      this.engine = new (window.ChessEngine.Chess)({ shape: this.shapeArg });
       this.selected = null;
       this.legalTargets = [];
       this.lastMove = null;

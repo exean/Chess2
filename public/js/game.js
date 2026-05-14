@@ -91,7 +91,7 @@
     const bottomColor = (myColor === 'b') ? 'b' : 'w';
     paintPlayer(els.playerTop, topColor);
     paintPlayer(els.playerBottom, bottomColor);
-    const shapeLabel = state.shape && state.shape !== 'standard' ? ' • ' + shapeName(state.shape) : '';
+    const shapeLabel = state.shape && state.shape !== 'standard' ? ' • ' + shapeName(state.shape, state.shapeOpts) : '';
     els.roomInfo.textContent = 'Raum ' + state.code +
       (state.timeControl.initial
         ? ' • ' + Math.round(state.timeControl.initial / 60) + '+' + state.timeControl.increment
@@ -100,9 +100,10 @@
       shapeLabel;
   }
 
-  function shapeName(s) {
+  function shapeName(s, opts) {
     if (s === 'octagon') return 'Achteck';
     if (s === 'cross') return 'Kreuz';
+    if (s === 'custom') return opts ? opts.width + 'x' + opts.height : 'Custom';
     return 'Standard';
   }
 
@@ -204,7 +205,12 @@
 
   function refreshFromState(newState) {
     state = newState;
-    if (state.shape && state.shape !== board.shapeName) board.setShape(state.shape);
+    if (state.shape) {
+      const arg = state.shape === 'custom' && state.shapeOpts
+        ? { kind: 'custom', width: state.shapeOpts.width, height: state.shapeOpts.height }
+        : state.shape;
+      board.setShape(arg);
+    }
     if (state.fen) {
       // Only replace position if engine differs (avoid wiping in-progress selection)
       if (board.engine.fen() !== state.fen) board.setPosition(state.fen);

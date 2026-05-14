@@ -2,7 +2,19 @@
 
 const { Chess, SHAPES } = require('../shared/chess-engine');
 
-const VALID_SHAPES = Object.keys(SHAPES);
+const VALID_SHAPES = [...Object.keys(SHAPES), 'custom'];
+
+function normalizeShape(shape, customSize) {
+  if (shape === 'custom') {
+    const w = Math.max(8, Math.min(26, (customSize && customSize.width)  | 0 || 8));
+    const h = Math.max(4, Math.min(20, (customSize && customSize.height) | 0 || 8));
+    return { engineArg: { kind: 'custom', width: w, height: h }, name: 'custom', opts: { width: w, height: h } };
+  }
+  if (!VALID_SHAPES.includes(shape) || shape === 'custom') {
+    return { engineArg: 'standard', name: 'standard', opts: null };
+  }
+  return { engineArg: shape, name: shape, opts: null };
+}
 
 const rooms = new Map();   // code -> room
 const userIndex = new Map(); // socketId -> code
@@ -26,6 +38,7 @@ function publicRoom(room) {
     timeControl: room.timeControl,
     rated: room.rated,
     shape: room.shape,
+    shapeOpts: room.shapeOpts,
     status: room.status,
     white: room.white ? publicSeat(room.white) : null,
     black: room.black ? publicSeat(room.black) : null,
@@ -80,21 +93,23 @@ function createBotSeat(difficulty) {
 function createRoom(opts) {
   const code = makeCode();
   const tc = opts.timeControl || { initial: 0, increment: 0 };
-  const shape = VALID_SHAPES.includes(opts.shape) ? opts.shape : 'standard';
+  const norm = normalizeShape(opts.shape, opts.customSize);
   // Only standard 8x8 counts toward Elo - alternative shapes and bot games are
   // unrated.
-  const rated = Boolean(opts.rated) && shape === 'standard' && !opts.botColor;
+  const rated = Boolean(opts.rated) && norm.name === 'standard' && !opts.botColor;
   const room = {
     code,
     visibility: opts.visibility === 'public' ? 'public' : 'private',
     timeControl: { initial: Math.max(0, tc.initial | 0), increment: Math.max(0, tc.increment | 0) },
     rated,
-    shape,
+    shape: norm.name,
+    shapeOpts: norm.opts,
+    shapeArg: norm.engineArg,
     status: 'waiting',
     white: null,
     black: null,
     spectators: [],
-    chess: new Chess({ shape }),
+    chess: new Chess({ shape: norm.engineArg }),
     moveList: [],
     chat: [],
     clock: {
@@ -134,6 +149,7 @@ function listPublicLobbies() {
       timeControl: room.timeControl,
       rated: room.rated,
       shape: room.shape,
+      shapeOpts: room.shapeOpts,
       host: room.white ? room.white.name : (room.black ? room.black.name : '?'),
       hostRating: room.white ? room.white.rating : (room.black ? room.black.rating : null),
       createdAt: room.createdAt,

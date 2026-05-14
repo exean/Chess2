@@ -236,11 +236,13 @@ function registerHandlers(io, socket) {
       } catch {}
     }
     const shape = (data && data.shape) || 'standard';
+    const customSize = data && data.customSize;
     const room = createRoom({
       visibility: isBotGame ? 'private' : visibility,
       rated,
       timeControl: tc,
       shape,
+      customSize,
       botColor: isBotGame ? (seat === 'w' ? 'b' : seat === 'b' ? 'w' : (Math.random() < 0.5 ? 'b' : 'w')) : null,
       createdBy: socket.data.user ? socket.data.user.id : null,
     });
@@ -557,7 +559,7 @@ function restartRoom(io, room) {
   const oldBlack = room.black;
   // Reset chess + clocks
   const { Chess } = require('../shared/chess-engine');
-  room.chess = new Chess({ shape: room.shape });
+  room.chess = new Chess({ shape: room.shapeArg });
   room.moveList = [];
   room.result = null;
   room.termination = null;

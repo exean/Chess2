@@ -61,8 +61,37 @@
     return SHAPES[name] || SHAPES.standard;
   }
 
-  function startingFen(shapeName) {
-    const s = getShape(shapeName);
+  // Build a rectangular custom shape. Min 8 cols (needed for the 8 starting
+  // pieces) and 4 rows (white back + pawns + black pawns + black back).
+  function makeCustomShape(opts) {
+    const width = Math.max(8, Math.min(26, (opts && opts.width) | 0 || 8));
+    const height = Math.max(4, Math.min(20, (opts && opts.height) | 0 || 8));
+    const startFile = Math.floor((width - 8) / 2);
+    const pieceFiles = Array.from({ length: 8 }, (_, i) => startFile + i);
+    return {
+      width, height,
+      mask: () => true,
+      whiteHomeRank: 0,
+      blackHomeRank: height - 1,
+      pieceFiles,
+      kingFile: pieceFiles[4],
+      queensideRookFile: pieceFiles[0],
+      kingsideRookFile: pieceFiles[7],
+    };
+  }
+
+  // Accepts shape as either a preset name string or an object
+  // { kind: 'custom', width, height }.
+  function resolveShape(shapeArg) {
+    if (shapeArg && typeof shapeArg === 'object' && shapeArg.kind === 'custom') {
+      return { name: 'custom', def: makeCustomShape(shapeArg) };
+    }
+    const name = typeof shapeArg === 'string' ? shapeArg : 'standard';
+    return { name, def: getShape(name) };
+  }
+
+  function startingFen(shapeArg) {
+    const s = resolveShape(shapeArg).def;
     const rows = [];
     const PIECES = ['r','n','b','q','k','b','n','r']; // back rank order
     for (let r = s.height - 1; r >= 0; r--) {
@@ -104,7 +133,7 @@
   class Chess {
     constructor(arg) {
       // Accepts either a FEN string (default standard) or an options object
-      // { shape: 'cross', fen?: '...' }.
+      // { shape: 'cross' | {kind:'custom', width, height}, fen?: '...' }.
       let shape = 'standard';
       let fen = null;
       if (typeof arg === 'string') {
@@ -113,8 +142,10 @@
         shape = arg.shape || 'standard';
         fen = arg.fen || null;
       }
-      this.shapeName = shape;
-      this.shape = getShape(shape);
+      const resolved = resolveShape(shape);
+      this.shapeName = resolved.name;
+      this.shapeArg = shape;
+      this.shape = resolved.def;
       this.reset();
       this.load(fen || startingFen(shape));
     }
@@ -131,7 +162,7 @@
     }
 
     clone() {
-      const c = new Chess({ shape: this.shapeName, fen: this.fen() });
+      const c = new Chess({ shape: this.shapeArg, fen: this.fen() });
       c.history = this.history.slice();
       c.posCount = Object.assign(Object.create(null), this.posCount);
       return c;
@@ -720,16 +751,17 @@
     }
   }
 
-  function shapeInfo(name) {
-    const s = getShape(name);
+  function shapeInfo(shapeArg) {
+    const resolved = resolveShape(shapeArg);
+    const s = resolved.def;
     const playable = [];
     for (let r = 0; r < s.height; r++) {
       const row = [];
       for (let f = 0; f < s.width; f++) row.push(s.mask(f, r));
       playable.push(row);
     }
-    return { name, width: s.width, height: s.height, playable };
+    return { name: resolved.name, width: s.width, height: s.height, playable };
   }
 
-  return { Chess, sqToAlg, algToSq, fileLetter, SHAPES, getShape, shapeInfo, startingFen };
+  return { Chess, sqToAlg, algToSq, fileLetter, SHAPES, getShape, resolveShape, makeCustomShape, shapeInfo, startingFen };
 }));
