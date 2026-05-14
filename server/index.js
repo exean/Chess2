@@ -9,7 +9,7 @@ const QRCode = require('qrcode');
 const { Server } = require('socket.io');
 
 const { router: authRouter, attachUser } = require('./auth');
-const { dbAvailable } = require('./db');
+const { dbAvailable, runMigrations } = require('./db');
 const { registerHandlers } = require('./socket');
 
 const app = express();
@@ -62,7 +62,21 @@ const io = new Server(server, {
 
 io.on('connection', (socket) => registerHandlers(io, socket));
 
-const PORT = Number(process.env.PORT) || 3000;
-server.listen(PORT, () => {
-  console.log(`Chess2 listening on port ${PORT} (DB: ${dbAvailable() ? 'on' : 'off'})`);
-});
+async function start() {
+  if (dbAvailable()) {
+    try {
+      await runMigrations();
+      console.log('Schema migration ok.');
+    } catch (err) {
+      console.error('Schema migration FAILED - starting anyway, DB features will be broken:', err.message);
+    }
+  } else {
+    console.log('DB not configured - skipping migration (anonymous-only mode).');
+  }
+  const PORT = Number(process.env.PORT) || 3000;
+  server.listen(PORT, () => {
+    console.log(`Chess2 listening on port ${PORT} (DB: ${dbAvailable() ? 'on' : 'off'})`);
+  });
+}
+
+start();

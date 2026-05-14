@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const mysql = require('mysql2/promise');
 
 let pool = null;
@@ -29,4 +31,25 @@ async function query(sql, params) {
 
 function dbAvailable() { return Boolean(process.env.DB_NAME); }
 
-module.exports = { getPool, query, dbAvailable };
+// Idempotent schema migration. Safe to call on every app start - the SQL
+// uses CREATE TABLE IF NOT EXISTS.
+async function runMigrations() {
+  if (!dbAvailable()) return { skipped: true, reason: 'DB not configured' };
+  const sql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
+  const conn = await mysql.createConnection({
+    host: process.env.DB_HOST || 'localhost',
+    port: Number(process.env.DB_PORT) || 3306,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    multipleStatements: true,
+  });
+  try {
+    await conn.query(sql);
+    return { ok: true };
+  } finally {
+    await conn.end();
+  }
+}
+
+module.exports = { getPool, query, dbAvailable, runMigrations };

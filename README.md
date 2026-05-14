@@ -52,15 +52,13 @@ Im Browser: <http://localhost:3000>
    - **Custom environment variables:** alternativ statt `.env` direkt setzen
      (`PORT`, `JWT_SECRET`, `DB_*`).
 5. **`NPM install` ausführen** (Plesk-Button auf der Node.js-Seite).
-6. **Migration laufen lassen.** Plesk hat einen *Run script*-Button - dort
-   `migrate` eintragen. Alternativ einmal per SSH:
-   ```bash
-   cd ~/httpdocs && node server/migrate.js
-   ```
-7. **App starten/neustarten.** Plesk-Button *Restart app*. Die App lauscht auf
+6. **App starten/neustarten.** Plesk-Button *Restart app*. Die App lauscht auf
    dem von Plesk vorgegebenen Port; das Passenger-Frontend leitet die
-   Domain darauf weiter.
-8. **HTTPS aktivieren** (Plesk - Let's Encrypt). Socket.IO nutzt automatisch
+   Domain darauf weiter. **Die Schema-Migration läuft automatisch beim Start**
+   (idempotent, `CREATE TABLE IF NOT EXISTS`) - du musst nichts manuell
+   anstoßen. `npm run migrate` existiert nur noch als optionaler manueller
+   Trigger für CI/Debug.
+7. **HTTPS aktivieren** (Plesk - Let's Encrypt). Socket.IO nutzt automatisch
    `wss://`, sobald die Seite über `https://` aufgerufen wird.
 
 ### Wichtige Plesk-Hinweise
