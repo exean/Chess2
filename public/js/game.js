@@ -27,6 +27,14 @@
     endPgn: document.getElementById('end-pgn'),
     endRematch: document.getElementById('end-rematch'),
     endLeave: document.getElementById('end-leave'),
+    sharePanel: document.getElementById('share-panel'),
+    shareCode: document.getElementById('share-code'),
+    shareQr: document.getElementById('share-qr'),
+    shareUrl: document.getElementById('share-url'),
+    btnCopy: document.getElementById('btn-copy'),
+    btnShare: document.getElementById('btn-share'),
+    nameModal: document.getElementById('name-modal'),
+    nameForm: document.getElementById('name-form'),
   };
 
   let myColor = null; // 'w' | 'b' | 'spectator'
@@ -208,6 +216,7 @@
     renderMoves();
     renderStatus();
     updateActionButtons();
+    updateSharePanel();
   }
 
   function updateActionButtons() {
@@ -237,9 +246,15 @@
       mySeatToken = seat.seatToken;
     }
     const name = Api.getName();
+    // Ask for a nickname if we have no seat token (i.e., first time on this room),
+    // no name saved, and no account.
+    if (!mySeatToken && !name && !Api.getToken()) {
+      promptForName(() => joinRoom());
+      return;
+    }
     socket.emit('room:join', {
       code,
-      name: name || ('Gast-' + Math.floor(Math.random() * 999)),
+      name: name || 'Gast',
       seatToken: mySeatToken,
     }, (res) => {
       if (res && res.error) { alert(res.error); location.href = '/'; return; }
@@ -255,6 +270,59 @@
       });
     });
   }
+
+  function promptForName(done) {
+    els.nameModal.classList.remove('hidden');
+    const handler = (e) => {
+      e.preventDefault();
+      const data = new FormData(els.nameForm);
+      const nick = String(data.get('nickname') || '').trim().slice(0, 32);
+      if (!nick) return;
+      Api.setName(nick);
+      els.nameModal.classList.add('hidden');
+      els.nameForm.removeEventListener('submit', handler);
+      done();
+    };
+    els.nameForm.addEventListener('submit', handler);
+  }
+
+  function updateSharePanel() {
+    if (!state) return;
+    const showPanel = state.status === 'waiting';
+    els.sharePanel.classList.toggle('hidden', !showPanel);
+    if (!showPanel) return;
+    const joinUrl = location.origin + '/game.html?code=' + encodeURIComponent(state.code);
+    els.shareCode.textContent = state.code;
+    els.shareUrl.value = joinUrl;
+    const qrUrl = '/api/qr?text=' + encodeURIComponent(joinUrl);
+    if (els.shareQr.dataset.for !== state.code) {
+      els.shareQr.dataset.for = state.code;
+      els.shareQr.src = qrUrl;
+    }
+    els.btnShare.classList.toggle('hidden', !navigator.share);
+  }
+
+  els.btnCopy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(els.shareUrl.value);
+      els.btnCopy.textContent = 'Kopiert ✓';
+      setTimeout(() => { els.btnCopy.textContent = 'Kopieren'; }, 1500);
+    } catch {
+      els.shareUrl.select();
+      document.execCommand && document.execCommand('copy');
+    }
+  });
+
+  els.btnShare.addEventListener('click', async () => {
+    if (!navigator.share) return;
+    try {
+      await navigator.share({
+        title: 'Chess2 - tritt meiner Partie bei',
+        text: 'Spiel mit mir Schach (Code ' + (state && state.code) + ')',
+        url: els.shareUrl.value,
+      });
+    } catch { /* user cancelled */ }
+  });
 
   // Button handlers
   els.btnFlip.addEventListener('click', () => board.flip());

@@ -6,6 +6,8 @@ responsives Vanilla-Frontend, eigener Regel-Engine ohne externe Bibliotheken.
 ## Features
 
 - 1v1 Partien über privaten Raumcode oder öffentliche Lobby
+- **QR-Code zum Beitreten**: Im Warteraum wird ein QR-Code mit dem Beitritts-Link
+  angezeigt - Gegner scannt mit dem Handy und ist sofort drin
 - Live-Übertragung aller Züge per Socket.IO
 - Anonymes Spielen mit Nickname **oder** Account mit Elo-Rating (MySQL)
 - Zeitkontrollen Bullet/Blitz/Rapid/Eigene (Initial + Inkrement)
@@ -104,6 +106,7 @@ REST:
 - `GET  /api/auth/me` -> `{user}`
 - `GET  /api/auth/leaderboard` -> `{entries: [...]}`
 - `GET  /api/health` -> `{ok, db}`
+- `GET  /api/qr?text=<url>` -> SVG QR-Code (für Raum-Beitritts-Links)
 
 Socket.IO (Client -> Server):
 

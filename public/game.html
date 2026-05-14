@@ -16,6 +16,20 @@
 
   <main class="game">
     <section class="board-panel">
+      <div id="share-panel" class="share-panel hidden">
+        <h3>Mitspieler einladen</h3>
+        <p class="muted">Code teilen oder QR-Code scannen lassen:</p>
+        <div class="share-row">
+          <div class="share-code" id="share-code">—</div>
+          <img id="share-qr" class="share-qr" alt="QR-Code zum Beitreten" />
+        </div>
+        <div class="share-link-row">
+          <input id="share-url" type="text" readonly />
+          <button id="btn-copy" class="btn btn-ghost" type="button">Kopieren</button>
+          <button id="btn-share" class="btn btn-primary hidden" type="button">Teilen</button>
+        </div>
+      </div>
+
       <div id="player-top" class="player-card">
         <span class="player-name">…</span>
         <span class="player-rating"></span>
@@ -51,6 +65,19 @@
       </div>
     </aside>
   </main>
+
+  <div id="name-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <h2>Wie heißt du?</h2>
+      <p class="muted">Damit dein Gegner weiß, wer am Zug ist.</p>
+      <form id="name-form">
+        <label>Nickname
+          <input type="text" name="nickname" maxlength="32" required autofocus />
+        </label>
+        <button type="submit" class="btn btn-primary">Beitreten</button>
+      </form>
+    </div>
+  </div>
 
   <div id="promo-modal" class="modal hidden" aria-hidden="true">
     <div class="modal-content small">

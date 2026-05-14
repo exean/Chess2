@@ -5,6 +5,7 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const cookie = require('cookie');
+const QRCode = require('qrcode');
 const { Server } = require('socket.io');
 
 const { router: authRouter, attachUser } = require('./auth');
@@ -22,6 +23,24 @@ app.use('/api/auth', authRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, db: dbAvailable(), time: new Date().toISOString() });
+});
+
+app.get('/api/qr', async (req, res) => {
+  const text = String(req.query.text || '').slice(0, 1024);
+  if (!text) return res.status(400).json({ error: 'text required' });
+  try {
+    const svg = await QRCode.toString(text, {
+      type: 'svg',
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      color: { dark: '#0d1117', light: '#ffffff' },
+    });
+    res.type('image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.send(svg);
+  } catch (err) {
+    res.status(500).json({ error: 'qr generation failed' });
+  }
 });
 
 const publicDir = path.join(__dirname, '..', 'public');
