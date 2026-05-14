@@ -1,6 +1,7 @@
 'use strict';
 /* Chess engine: rules, move generation, FEN, SAN, PGN.
-   Works in Node (CommonJS) and the browser (window.Chess). */
+   Works in Node (CommonJS) and the browser (window.ChessEngine).
+   Supports variable board shapes via a playable-square mask. */
 (function (root, factory) {
   const mod = factory();
   if (typeof module === 'object' && module.exports) module.exports = mod;
@@ -8,8 +9,6 @@
 }(typeof self !== 'undefined' ? self : this, function () {
 
   const W = 'w', B = 'b';
-  const PIECE_ORDER = ['p', 'n', 'b', 'r', 'q', 'k'];
-  const PIECE_VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
   const DIRS = {
     n: [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]],
@@ -19,23 +18,109 @@
     q: [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]],
   };
 
-  function inBounds(f, r) { return f >= 0 && f < 8 && r >= 0 && r < 8; }
-  function sqToAlg(f, r) { return 'abcdefgh'[f] + (r + 1); }
+  // Built-in shapes. Each shape defines the bounding box, which squares are
+  // playable, and where the starting setup lives (home ranks + king/rook files).
+  // The starting position is the standard 8 pieces + 8 pawns per side, placed
+  // on the home ranks in the configured files - identical pieces, identical
+  // behavior. Promotion happens when a pawn cannot continue forward (= edge of
+  // the playable area in that file).
+  const SHAPES = {
+    standard: {
+      width: 8, height: 8,
+      mask: () => true,
+      whiteHomeRank: 0, blackHomeRank: 7,
+      pieceFiles: [0,1,2,3,4,5,6,7],
+      kingFile: 4, queensideRookFile: 0, kingsideRookFile: 7,
+    },
+    octagon: {
+      width: 10, height: 10,
+      // 10x10 with 4 single-square corners cut.
+      mask: (f, r) => !((f === 0 && r === 0) || (f === 9 && r === 0) ||
+                        (f === 0 && r === 9) || (f === 9 && r === 9)),
+      whiteHomeRank: 0, blackHomeRank: 9,
+      pieceFiles: [1,2,3,4,5,6,7,8],
+      kingFile: 5, queensideRookFile: 1, kingsideRookFile: 8,
+    },
+    cross: {
+      width: 12, height: 12,
+      // 12x12 cross: 2x2 blocks cut from each of the 4 corner regions, leaving
+      // a Greek cross with 8-wide central body and 2-square arm extensions.
+      mask: (f, r) => {
+        const cornerCutSize = 2;
+        const xs = f < cornerCutSize || f >= 12 - cornerCutSize;
+        const ys = r < cornerCutSize || r >= 12 - cornerCutSize;
+        return !(xs && ys);
+      },
+      whiteHomeRank: 2, blackHomeRank: 9,
+      pieceFiles: [2,3,4,5,6,7,8,9],
+      kingFile: 6, queensideRookFile: 2, kingsideRookFile: 9,
+    },
+  };
+
+  function getShape(name) {
+    return SHAPES[name] || SHAPES.standard;
+  }
+
+  function startingFen(shapeName) {
+    const s = getShape(shapeName);
+    const rows = [];
+    const PIECES = ['r','n','b','q','k','b','n','r']; // back rank order
+    for (let r = s.height - 1; r >= 0; r--) {
+      let row = '', emptyRun = 0;
+      const flushEmpty = () => { if (emptyRun) { row += emptyRun; emptyRun = 0; } };
+      for (let f = 0; f < s.width; f++) {
+        if (!s.mask(f, r)) { flushEmpty(); row += '*'; continue; }
+        let ch = null;
+        if (r === s.whiteHomeRank && s.pieceFiles.includes(f)) {
+          ch = PIECES[s.pieceFiles.indexOf(f)].toUpperCase();
+        } else if (r === s.whiteHomeRank + 1 && s.pieceFiles.includes(f)) {
+          ch = 'P';
+        } else if (r === s.blackHomeRank && s.pieceFiles.includes(f)) {
+          ch = PIECES[s.pieceFiles.indexOf(f)];
+        } else if (r === s.blackHomeRank - 1 && s.pieceFiles.includes(f)) {
+          ch = 'p';
+        }
+        if (ch) { flushEmpty(); row += ch; }
+        else { emptyRun++; }
+      }
+      flushEmpty();
+      rows.push(row);
+    }
+    return rows.join('/') + ' w KQkq - 0 1';
+  }
+
+  function fileLetter(f) {
+    return 'abcdefghijklmnopqrstuvwxyz'[f];
+  }
+  function letterFile(ch) { return ch.charCodeAt(0) - 97; }
+  function sqToAlg(f, r) { return fileLetter(f) + (r + 1); }
   function algToSq(a) {
-    const f = a.charCodeAt(0) - 97;
-    const r = parseInt(a[1], 10) - 1;
+    const f = letterFile(a[0]);
+    const r = parseInt(a.slice(1), 10) - 1;
     return [f, r];
   }
   function otherColor(c) { return c === W ? B : W; }
 
   class Chess {
-    constructor(fen) {
+    constructor(arg) {
+      // Accepts either a FEN string (default standard) or an options object
+      // { shape: 'cross', fen?: '...' }.
+      let shape = 'standard';
+      let fen = null;
+      if (typeof arg === 'string') {
+        fen = arg;
+      } else if (arg && typeof arg === 'object') {
+        shape = arg.shape || 'standard';
+        fen = arg.fen || null;
+      }
+      this.shapeName = shape;
+      this.shape = getShape(shape);
       this.reset();
-      this.load(fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+      this.load(fen || startingFen(shape));
     }
 
     reset() {
-      this.board = Array.from({ length: 8 }, () => Array(8).fill(null));
+      this.board = Array.from({ length: this.shape.height }, () => Array(this.shape.width).fill(null));
       this.turn = W;
       this.castling = { w: { k: false, q: false }, b: { k: false, q: false } };
       this.ep = null;
@@ -46,10 +131,18 @@
     }
 
     clone() {
-      const c = new Chess(this.fen());
+      const c = new Chess({ shape: this.shapeName, fen: this.fen() });
       c.history = this.history.slice();
       c.posCount = Object.assign(Object.create(null), this.posCount);
       return c;
+    }
+
+    isOnBoard(f, r) {
+      return f >= 0 && f < this.shape.width && r >= 0 && r < this.shape.height;
+    }
+
+    isPlayable(f, r) {
+      return this.isOnBoard(f, r) && this.shape.mask(f, r);
     }
 
     load(fen) {
@@ -58,12 +151,13 @@
       if (parts.length < 4) throw new Error('Invalid FEN');
       const [pos, turn, castle, ep, half, full] = parts;
       const rows = pos.split('/');
-      if (rows.length !== 8) throw new Error('Invalid FEN board');
-      for (let i = 0; i < 8; i++) {
-        const rank = 7 - i;
+      if (rows.length !== this.shape.height) throw new Error('FEN row count does not match shape height');
+      for (let i = 0; i < rows.length; i++) {
+        const rank = this.shape.height - 1 - i;
         let file = 0;
         for (const ch of rows[i]) {
           if (/\d/.test(ch)) { file += parseInt(ch, 10); continue; }
+          if (ch === '*') { file++; continue; } // non-playable marker - ignore
           const color = ch === ch.toUpperCase() ? W : B;
           const type = ch.toLowerCase();
           this.board[rank][file] = { type, color };
@@ -83,15 +177,17 @@
 
     fen() {
       const rows = [];
-      for (let r = 7; r >= 0; r--) {
+      for (let r = this.shape.height - 1; r >= 0; r--) {
         let row = '', empty = 0;
-        for (let f = 0; f < 8; f++) {
+        const flush = () => { if (empty) { row += empty; empty = 0; } };
+        for (let f = 0; f < this.shape.width; f++) {
+          if (!this.shape.mask(f, r)) { flush(); row += '*'; continue; }
           const p = this.board[r][f];
           if (!p) { empty++; continue; }
-          if (empty) { row += empty; empty = 0; }
+          flush();
           row += p.color === W ? p.type.toUpperCase() : p.type;
         }
-        if (empty) row += empty;
+        flush();
         rows.push(row);
       }
       let c = '';
@@ -123,14 +219,14 @@
     pieceAt(squareOrFile, rank) {
       if (typeof squareOrFile === 'string') {
         const [f, r] = algToSq(squareOrFile);
-        return this.board[r][f];
+        return this.isOnBoard(f, r) ? this.board[r][f] : null;
       }
-      return this.board[rank][squareOrFile];
+      return this.isOnBoard(squareOrFile, rank) ? this.board[rank][squareOrFile] : null;
     }
 
     findKing(color) {
-      for (let r = 0; r < 8; r++)
-        for (let f = 0; f < 8; f++) {
+      for (let r = 0; r < this.shape.height; r++)
+        for (let f = 0; f < this.shape.width; f++) {
           const p = this.board[r][f];
           if (p && p.type === 'k' && p.color === color) return [f, r];
         }
@@ -138,32 +234,28 @@
     }
 
     isSquareAttacked(file, rank, byColor) {
-      // Pawn attacks
       const dir = byColor === W ? 1 : -1;
       for (const df of [-1, 1]) {
         const f = file - df, r = rank - dir;
-        if (inBounds(f, r)) {
+        if (this.isPlayable(f, r)) {
           const p = this.board[r][f];
           if (p && p.color === byColor && p.type === 'p') return true;
         }
       }
-      // Knight
       for (const [df, dr] of DIRS.n) {
         const f = file + df, r = rank + dr;
-        if (inBounds(f, r)) {
+        if (this.isPlayable(f, r)) {
           const p = this.board[r][f];
           if (p && p.color === byColor && p.type === 'n') return true;
         }
       }
-      // King
       for (const [df, dr] of DIRS.k) {
         const f = file + df, r = rank + dr;
-        if (inBounds(f, r)) {
+        if (this.isPlayable(f, r)) {
           const p = this.board[r][f];
           if (p && p.color === byColor && p.type === 'k') return true;
         }
       }
-      // Sliders
       const sliders = [
         { dirs: DIRS.r, types: ['r', 'q'] },
         { dirs: DIRS.b, types: ['b', 'q'] },
@@ -171,7 +263,7 @@
       for (const s of sliders) {
         for (const [df, dr] of s.dirs) {
           let f = file + df, r = rank + dr;
-          while (inBounds(f, r)) {
+          while (this.isPlayable(f, r)) {
             const p = this.board[r][f];
             if (p) {
               if (p.color === byColor && s.types.includes(p.type)) return true;
@@ -191,13 +283,11 @@
       return this.isSquareAttacked(k[0], k[1], otherColor(c));
     }
 
-    _addMove(moves, m) { moves.push(m); }
-
     generatePseudoMoves(color) {
       const moves = [];
       const me = color || this.turn;
-      for (let r = 0; r < 8; r++) {
-        for (let f = 0; f < 8; f++) {
+      for (let r = 0; r < this.shape.height; r++) {
+        for (let f = 0; f < this.shape.width; f++) {
           const p = this.board[r][f];
           if (!p || p.color !== me) continue;
           if (p.type === 'p') this._pawnMoves(f, r, p.color, moves);
@@ -211,30 +301,36 @@
       return moves;
     }
 
+    _isPromotionSquare(f, r, color) {
+      const dir = color === W ? 1 : -1;
+      // Promote whenever the pawn cannot continue forward (edge of the playable
+      // area along this file). This generalizes the standard back-rank rule.
+      return !this.isPlayable(f, r + dir);
+    }
+
     _pawnMoves(f, r, color, moves) {
       const dir = color === W ? 1 : -1;
-      const startRank = color === W ? 1 : 6;
-      const promoteRank = color === W ? 7 : 0;
+      const startRank = color === W ? this.shape.whiteHomeRank + 1 : this.shape.blackHomeRank - 1;
       const one = r + dir;
-      if (inBounds(f, one) && !this.board[one][f]) {
-        if (one === promoteRank) {
+      if (this.isPlayable(f, one) && !this.board[one][f]) {
+        if (this._isPromotionSquare(f, one, color)) {
           for (const promo of ['q', 'r', 'b', 'n']) {
             moves.push({ from: [f, r], to: [f, one], piece: 'p', color, promotion: promo, flags: 'p' });
           }
         } else {
           moves.push({ from: [f, r], to: [f, one], piece: 'p', color, flags: 'n' });
           const two = r + dir * 2;
-          if (r === startRank && !this.board[two][f]) {
+          if (r === startRank && this.isPlayable(f, two) && !this.board[two][f]) {
             moves.push({ from: [f, r], to: [f, two], piece: 'p', color, flags: 'b' });
           }
         }
       }
       for (const df of [-1, 1]) {
         const nf = f + df, nr = r + dir;
-        if (!inBounds(nf, nr)) continue;
+        if (!this.isPlayable(nf, nr)) continue;
         const target = this.board[nr][nf];
         if (target && target.color !== color) {
-          if (nr === promoteRank) {
+          if (this._isPromotionSquare(nf, nr, color)) {
             for (const promo of ['q', 'r', 'b', 'n']) {
               moves.push({ from: [f, r], to: [nf, nr], piece: 'p', color, captured: target.type, promotion: promo, flags: 'pc' });
             }
@@ -250,7 +346,7 @@
     _stepMoves(f, r, color, dirs, moves) {
       for (const [df, dr] of dirs) {
         const nf = f + df, nr = r + dr;
-        if (!inBounds(nf, nr)) continue;
+        if (!this.isPlayable(nf, nr)) continue;
         const t = this.board[nr][nf];
         if (!t) moves.push({ from: [f, r], to: [nf, nr], piece: 'n', color, flags: 'n' });
         else if (t.color !== color) moves.push({ from: [f, r], to: [nf, nr], piece: 'n', color, captured: t.type, flags: 'c' });
@@ -261,7 +357,7 @@
       const piece = this.board[r][f].type;
       for (const [df, dr] of dirs) {
         let nf = f + df, nr = r + dr;
-        while (inBounds(nf, nr)) {
+        while (this.isPlayable(nf, nr)) {
           const t = this.board[nr][nf];
           if (!t) moves.push({ from: [f, r], to: [nf, nr], piece, color, flags: 'n' });
           else {
@@ -276,28 +372,46 @@
     _kingMoves(f, r, color, moves) {
       for (const [df, dr] of DIRS.k) {
         const nf = f + df, nr = r + dr;
-        if (!inBounds(nf, nr)) continue;
+        if (!this.isPlayable(nf, nr)) continue;
         const t = this.board[nr][nf];
         if (!t) moves.push({ from: [f, r], to: [nf, nr], piece: 'k', color, flags: 'n' });
         else if (t.color !== color) moves.push({ from: [f, r], to: [nf, nr], piece: 'k', color, captured: t.type, flags: 'c' });
       }
-      // Castling
-      const back = color === W ? 0 : 7;
-      if (f !== 4 || r !== back) return;
+      // Castling - only on home rank, using the shape's configured king/rook files.
+      const back = color === W ? this.shape.whiteHomeRank : this.shape.blackHomeRank;
+      const kf = this.shape.kingFile;
+      if (f !== kf || r !== back) return;
       const opp = otherColor(color);
-      if (this.isSquareAttacked(4, back, opp)) return;
+      if (this.isSquareAttacked(kf, back, opp)) return;
+      // Kingside (rook to the king's right - higher file)
       if (this.castling[color].k) {
-        if (!this.board[back][5] && !this.board[back][6]
-            && this.board[back][7] && this.board[back][7].type === 'r'
-            && !this.isSquareAttacked(5, back, opp) && !this.isSquareAttacked(6, back, opp)) {
-          moves.push({ from: [4, back], to: [6, back], piece: 'k', color, flags: 'k' });
+        const rf = this.shape.kingsideRookFile;
+        const rook = this.board[back][rf];
+        if (rook && rook.type === 'r' && rook.color === color) {
+          let pathClear = true;
+          for (let f2 = kf + 1; f2 < rf; f2++) {
+            if (!this.isPlayable(f2, back) || this.board[back][f2]) { pathClear = false; break; }
+          }
+          if (pathClear &&
+              !this.isSquareAttacked(kf + 1, back, opp) &&
+              !this.isSquareAttacked(kf + 2, back, opp)) {
+            moves.push({ from: [kf, back], to: [kf + 2, back], piece: 'k', color, flags: 'k' });
+          }
         }
       }
       if (this.castling[color].q) {
-        if (!this.board[back][1] && !this.board[back][2] && !this.board[back][3]
-            && this.board[back][0] && this.board[back][0].type === 'r'
-            && !this.isSquareAttacked(3, back, opp) && !this.isSquareAttacked(2, back, opp)) {
-          moves.push({ from: [4, back], to: [2, back], piece: 'k', color, flags: 'q' });
+        const rf = this.shape.queensideRookFile;
+        const rook = this.board[back][rf];
+        if (rook && rook.type === 'r' && rook.color === color) {
+          let pathClear = true;
+          for (let f2 = rf + 1; f2 < kf; f2++) {
+            if (!this.isPlayable(f2, back) || this.board[back][f2]) { pathClear = false; break; }
+          }
+          if (pathClear &&
+              !this.isSquareAttacked(kf - 1, back, opp) &&
+              !this.isSquareAttacked(kf - 2, back, opp)) {
+            moves.push({ from: [kf, back], to: [kf - 2, back], piece: 'k', color, flags: 'q' });
+          }
         }
       }
     }
@@ -330,7 +444,6 @@
       const piece = this.board[fr][ff];
 
       if (m.flags === 'e') {
-        // En passant capture
         const capR = fr;
         undo.captured = this.board[capR][tf];
         undo.capturedSquare = [tf, capR];
@@ -344,43 +457,43 @@
       this.board[fr][ff] = null;
 
       if (m.flags === 'k') {
-        this.board[tr][5] = this.board[tr][7];
-        this.board[tr][7] = null;
+        const rf = this.shape.kingsideRookFile;
+        this.board[tr][tf - 1] = this.board[tr][rf];
+        this.board[tr][rf] = null;
       } else if (m.flags === 'q') {
-        this.board[tr][3] = this.board[tr][0];
-        this.board[tr][0] = null;
+        const rf = this.shape.queensideRookFile;
+        this.board[tr][tf + 1] = this.board[tr][rf];
+        this.board[tr][rf] = null;
       }
 
       if (m.promotion) {
         this.board[tr][tf] = { type: m.promotion, color: piece.color };
       }
 
-      // Castling rights
+      // Castling rights bookkeeping
       if (piece.type === 'k') {
         this.castling[piece.color].k = false;
         this.castling[piece.color].q = false;
       }
       if (piece.type === 'r') {
-        const back = piece.color === W ? 0 : 7;
-        if (fr === back && ff === 0) this.castling[piece.color].q = false;
-        if (fr === back && ff === 7) this.castling[piece.color].k = false;
+        const back = piece.color === W ? this.shape.whiteHomeRank : this.shape.blackHomeRank;
+        if (fr === back && ff === this.shape.queensideRookFile) this.castling[piece.color].q = false;
+        if (fr === back && ff === this.shape.kingsideRookFile) this.castling[piece.color].k = false;
       }
       if (undo.captured && undo.captured.type === 'r') {
         const opp = undo.captured.color;
-        const back = opp === W ? 0 : 7;
+        const back = opp === W ? this.shape.whiteHomeRank : this.shape.blackHomeRank;
         const [csf, csr] = undo.capturedSquare;
-        if (csr === back && csf === 0) this.castling[opp].q = false;
-        if (csr === back && csf === 7) this.castling[opp].k = false;
+        if (csr === back && csf === this.shape.queensideRookFile) this.castling[opp].q = false;
+        if (csr === back && csf === this.shape.kingsideRookFile) this.castling[opp].k = false;
       }
 
-      // En passant target square
       if (piece.type === 'p' && Math.abs(tr - fr) === 2) {
         this.ep = [ff, (fr + tr) / 2];
       } else {
         this.ep = null;
       }
 
-      // Halfmove clock
       if (piece.type === 'p' || undo.captured) this.halfmove = 0;
       else this.halfmove++;
 
@@ -398,17 +511,18 @@
       const [tf, tr] = m.to;
       const piece = this.board[tr][tf];
 
-      // Reverse promotion
       const movedBack = m.promotion ? { type: 'p', color: piece.color } : piece;
       this.board[fr][ff] = movedBack;
       this.board[tr][tf] = null;
 
       if (m.flags === 'k') {
-        this.board[tr][7] = this.board[tr][5];
-        this.board[tr][5] = null;
+        const rf = this.shape.kingsideRookFile;
+        this.board[tr][rf] = this.board[tr][tf - 1];
+        this.board[tr][tf - 1] = null;
       } else if (m.flags === 'q') {
-        this.board[tr][0] = this.board[tr][3];
-        this.board[tr][3] = null;
+        const rf = this.shape.queensideRookFile;
+        this.board[tr][rf] = this.board[tr][tf + 1];
+        this.board[tr][tf + 1] = null;
       }
 
       if (undo.captured) {
@@ -427,7 +541,6 @@
       const legal = this.generateLegalMoves();
       let chosen = null;
       if (typeof input === 'string') {
-        // SAN parsing not strictly required; try basic forms
         chosen = this._matchSan(input, legal);
       } else if (input && input.from && input.to) {
         const [ff, fr] = typeof input.from === 'string' ? algToSq(input.from) : input.from;
@@ -442,7 +555,6 @@
       if (!chosen) return null;
       const san = this._moveToSan(chosen, legal);
       this._make(chosen);
-      // Suffix check/mate marker
       const oppMoves = this.generateLegalMoves();
       let suffix = '';
       if (this.inCheck()) suffix = oppMoves.length === 0 ? '#' : '+';
@@ -474,7 +586,7 @@
       const cleaned = san.replace(/[+#?!]/g, '');
       if (cleaned === 'O-O' || cleaned === '0-0') return legal.find((m) => m.flags === 'k') || null;
       if (cleaned === 'O-O-O' || cleaned === '0-0-0') return legal.find((m) => m.flags === 'q') || null;
-      const re = /^([NBRQK])?([a-h])?([1-8])?x?([a-h][1-8])(?:=([NBRQ]))?$/;
+      const re = /^([NBRQK])?([a-z])?(\d+)?x?([a-z]\d+)(?:=([NBRQ]))?$/;
       const match = cleaned.match(re);
       if (!match) return null;
       const [, pieceLetter, fromFile, fromRank, dest, promo] = match;
@@ -482,7 +594,7 @@
       const [tf, tr] = algToSq(dest);
       const candidates = legal.filter((m) =>
         m.piece === type && m.to[0] === tf && m.to[1] === tr &&
-        (!fromFile || m.from[0] === fromFile.charCodeAt(0) - 97) &&
+        (!fromFile || m.from[0] === letterFile(fromFile)) &&
         (!fromRank || m.from[1] === parseInt(fromRank, 10) - 1) &&
         (!promo || m.promotion === promo.toLowerCase())
       );
@@ -496,12 +608,11 @@
       const capture = m.captured || m.flags === 'e';
       if (m.piece === 'p') {
         let s = '';
-        if (capture) s += 'abcdefgh'[m.from[0]] + 'x';
+        if (capture) s += fileLetter(m.from[0]) + 'x';
         s += dest;
         if (m.promotion) s += '=' + m.promotion.toUpperCase();
         return s;
       }
-      // Disambiguation
       const same = legal.filter((x) =>
         x !== m && x.piece === m.piece && x.to[0] === m.to[0] && x.to[1] === m.to[1]
       );
@@ -509,7 +620,7 @@
       if (same.length) {
         const sameFile = same.some((x) => x.from[0] === m.from[0]);
         const sameRank = same.some((x) => x.from[1] === m.from[1]);
-        if (!sameFile) disambig = 'abcdefgh'[m.from[0]];
+        if (!sameFile) disambig = fileLetter(m.from[0]);
         else if (!sameRank) disambig = String(m.from[1] + 1);
         else disambig = sqToAlg(m.from[0], m.from[1]);
       }
@@ -526,7 +637,8 @@
 
     insufficientMaterial() {
       const pieces = { w: [], b: [] };
-      for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+      for (let r = 0; r < this.shape.height; r++) for (let f = 0; f < this.shape.width; f++) {
+        if (!this.shape.mask(f, r)) continue;
         const p = this.board[r][f];
         if (p && p.type !== 'k') pieces[p.color].push({ ...p, square: [f, r] });
       }
@@ -583,6 +695,7 @@
         White: '?',
         Black: '?',
         Result: this.result(),
+        Variant: this.shapeName === 'standard' ? 'Standard' : ('Chess2 ' + this.shapeName),
       }, meta || {});
       let out = '';
       for (const k of Object.keys(headers)) out += `[${k} "${headers[k]}"]\n`;
@@ -607,5 +720,16 @@
     }
   }
 
-  return { Chess, sqToAlg, algToSq, PIECE_VALUE, PIECE_ORDER };
+  function shapeInfo(name) {
+    const s = getShape(name);
+    const playable = [];
+    for (let r = 0; r < s.height; r++) {
+      const row = [];
+      for (let f = 0; f < s.width; f++) row.push(s.mask(f, r));
+      playable.push(row);
+    }
+    return { name, width: s.width, height: s.height, playable };
+  }
+
+  return { Chess, sqToAlg, algToSq, fileLetter, SHAPES, getShape, shapeInfo, startingFen };
 }));

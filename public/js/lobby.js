@@ -17,6 +17,8 @@
     seat: document.getElementById('seat'),
     visibility: document.getElementById('visibility'),
     rated: document.getElementById('rated'),
+    shape: document.getElementById('shape'),
+    shapeHint: document.getElementById('shape-hint'),
     authModal: document.getElementById('auth-modal'),
     authForm: document.getElementById('auth-form'),
     authTitle: document.getElementById('auth-title'),
@@ -24,6 +26,19 @@
     showLogin: document.getElementById('btn-show-login'),
     showRegister: document.getElementById('btn-show-register'),
   };
+
+  function shapeHintText(s) {
+    if (s === 'octagon') return 'Achteck 10x10: 4 Eckfelder fehlen, Figuren können in die Randspuren ausweichen. Unbewertet.';
+    if (s === 'cross') return 'Kreuz 12x12: Standard-Aufstellung in der Mitte, Bauern wandeln am tatsächlichen Brettrand (= längere Partien in den Armen). Unbewertet.';
+    return '';
+  }
+  function updateShapeHint() {
+    const v = els.shape.value;
+    els.shapeHint.textContent = shapeHintText(v);
+    if (v !== 'standard') els.rated.checked = false;
+    els.rated.disabled = (v !== 'standard') || !user;
+  }
+  els.shape.addEventListener('change', updateShapeHint);
 
   els.nick.value = Api.getName();
   els.nick.addEventListener('input', () => Api.setName(els.nick.value));
@@ -47,13 +62,12 @@
       els.loggedIn.textContent = 'Eingeloggt als ' + user.username + ' (Rating ' + user.rating + ')';
       els.nick.value = user.username;
       els.nick.disabled = true;
-      els.rated.disabled = false;
     } else {
       els.loggedIn.classList.add('hidden');
       els.nick.disabled = false;
-      els.rated.disabled = true;
       els.rated.checked = false;
     }
+    updateShapeHint();
   }
 
   async function loadMe() {
@@ -129,6 +143,7 @@
       timeControl: timeControl(),
       rated: els.rated.checked,
       seat: els.seat.value,
+      shape: els.shape.value,
     }, (res) => {
       if (res.error) { alert(res.error); return; }
       Api.saveSeat(res.code, res.color, res.seatToken);
@@ -158,6 +173,7 @@
       left.innerHTML = '<strong>' + escapeHtml(r.host) + '</strong>' +
         (r.hostRating ? ' <span class="pill">' + r.hostRating + '</span>' : '') +
         ' <span class="pill">' + formatTC(r.timeControl) + '</span>' +
+        (r.shape && r.shape !== 'standard' ? ' <span class="pill">' + shapeLabel(r.shape) + '</span>' : '') +
         (r.rated ? ' <span class="pill">bewertet</span>' : '');
       const btn = document.createElement('button');
       btn.className = 'btn btn-primary';
@@ -177,6 +193,12 @@
   function formatTC(tc) {
     if (!tc || !tc.initial) return 'ohne Uhr';
     return Math.round(tc.initial / 60) + '+' + tc.increment;
+  }
+
+  function shapeLabel(s) {
+    if (s === 'octagon') return 'Achteck';
+    if (s === 'cross') return 'Kreuz';
+    return s;
   }
 
   function escapeHtml(s) {

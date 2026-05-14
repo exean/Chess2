@@ -91,11 +91,19 @@
     const bottomColor = (myColor === 'b') ? 'b' : 'w';
     paintPlayer(els.playerTop, topColor);
     paintPlayer(els.playerBottom, bottomColor);
+    const shapeLabel = state.shape && state.shape !== 'standard' ? ' • ' + shapeName(state.shape) : '';
     els.roomInfo.textContent = 'Raum ' + state.code +
       (state.timeControl.initial
         ? ' • ' + Math.round(state.timeControl.initial / 60) + '+' + state.timeControl.increment
         : ' • ohne Uhr') +
-      (state.rated ? ' • bewertet' : '');
+      (state.rated ? ' • bewertet' : '') +
+      shapeLabel;
+  }
+
+  function shapeName(s) {
+    if (s === 'octagon') return 'Achteck';
+    if (s === 'cross') return 'Kreuz';
+    return 'Standard';
   }
 
   function paintPlayer(el, color) {
@@ -196,6 +204,7 @@
 
   function refreshFromState(newState) {
     state = newState;
+    if (state.shape && state.shape !== board.shapeName) board.setShape(state.shape);
     if (state.fen) {
       // Only replace position if engine differs (avoid wiping in-progress selection)
       if (board.engine.fen() !== state.fen) board.setPosition(state.fen);

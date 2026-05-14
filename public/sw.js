@@ -2,7 +2,7 @@
  * App-shell cache so the UI loads instantly and survives flaky networks.
  * Real-time traffic (Socket.IO) and API calls bypass the cache.
  */
-const CACHE_VERSION = 'chess2-v1';
+const CACHE_VERSION = 'chess2-v2';
 const SHELL = [
   '/',
   '/index.html',

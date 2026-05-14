@@ -175,10 +175,12 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
 }
 
 .board {
+  --cols: 8;
+  --rows: 8;
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  grid-template-rows: repeat(8, 1fr);
-  aspect-ratio: 1 / 1;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  grid-template-rows: repeat(var(--rows), 1fr);
+  aspect-ratio: var(--cols) / var(--rows);
   width: 100%;
   max-width: min(100vw, 90vh);
   margin: 0 auto;
@@ -186,6 +188,10 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
   border-radius: 6px;
   overflow: hidden;
   box-shadow: var(--shadow);
+}
+.board .sq.void {
+  background: transparent;
+  cursor: default;
 }
 .sq {
   position: relative;

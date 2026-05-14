@@ -1,6 +1,8 @@
 'use strict';
 
-const { Chess } = require('../shared/chess-engine');
+const { Chess, SHAPES } = require('../shared/chess-engine');
+
+const VALID_SHAPES = Object.keys(SHAPES);
 
 const rooms = new Map();   // code -> room
 const userIndex = new Map(); // socketId -> code
@@ -23,6 +25,7 @@ function publicRoom(room) {
     visibility: room.visibility,
     timeControl: room.timeControl,
     rated: room.rated,
+    shape: room.shape,
     status: room.status,
     white: room.white ? publicSeat(room.white) : null,
     black: room.black ? publicSeat(room.black) : null,
@@ -63,16 +66,20 @@ function clockSnapshot(room) {
 function createRoom(opts) {
   const code = makeCode();
   const tc = opts.timeControl || { initial: 0, increment: 0 };
+  const shape = VALID_SHAPES.includes(opts.shape) ? opts.shape : 'standard';
+  // Only standard 8x8 counts toward Elo - alternative shapes are unrated.
+  const rated = Boolean(opts.rated) && shape === 'standard';
   const room = {
     code,
     visibility: opts.visibility === 'public' ? 'public' : 'private',
     timeControl: { initial: Math.max(0, tc.initial | 0), increment: Math.max(0, tc.increment | 0) },
-    rated: Boolean(opts.rated),
+    rated,
+    shape,
     status: 'waiting',
     white: null,
     black: null,
     spectators: [],
-    chess: new Chess(),
+    chess: new Chess({ shape }),
     moveList: [],
     chat: [],
     clock: {
@@ -111,6 +118,7 @@ function listPublicLobbies() {
       code: room.code,
       timeControl: room.timeControl,
       rated: room.rated,
+      shape: room.shape,
       host: room.white ? room.white.name : (room.black ? room.black.name : '?'),
       hostRating: room.white ? room.white.rating : (room.black ? room.black.rating : null),
       createdAt: room.createdAt,

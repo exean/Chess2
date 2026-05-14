@@ -36,6 +36,22 @@
     <section class="card">
       <h2>Neuen Raum erstellen</h2>
       <div class="row">
+        <label>Brettform
+          <select id="shape">
+            <option value="standard" selected>Standard 8x8</option>
+            <option value="octagon">Achteck 10x10</option>
+            <option value="cross">Kreuz 12x12</option>
+          </select>
+        </label>
+        <label>Farbe
+          <select id="seat">
+            <option value="random" selected>Zufällig</option>
+            <option value="w">Weiß</option>
+            <option value="b">Schwarz</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
         <label>Zeit (Minuten)
           <select id="tc-initial">
             <option value="0">Ohne Uhr</option>
@@ -57,23 +73,17 @@
         </label>
       </div>
       <div class="row">
-        <label>Farbe
-          <select id="seat">
-            <option value="random" selected>Zufällig</option>
-            <option value="w">Weiß</option>
-            <option value="b">Schwarz</option>
-          </select>
-        </label>
         <label>Sichtbarkeit
           <select id="visibility">
             <option value="private" selected>Privat (Code)</option>
             <option value="public">Öffentlich</option>
           </select>
         </label>
+        <label class="check">
+          <input type="checkbox" id="rated" /> Bewertet (nur Standard + Account)
+        </label>
       </div>
-      <label class="check">
-        <input type="checkbox" id="rated" /> Bewertet (nur mit Account)
-      </label>
+      <p class="muted shape-hint" id="shape-hint"></p>
       <button id="btn-create" class="btn btn-primary">Raum erstellen</button>
     </section>
 

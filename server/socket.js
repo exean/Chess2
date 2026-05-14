@@ -186,8 +186,10 @@ function registerHandlers(io, socket) {
         if (rows[0]) rating = rows[0].rating;
       } catch {}
     }
+    const shape = (data && data.shape) || 'standard';
     const room = createRoom({
-      visibility, rated, timeControl: tc, createdBy: socket.data.user ? socket.data.user.id : null,
+      visibility, rated, timeControl: tc, shape,
+      createdBy: socket.data.user ? socket.data.user.id : null,
     });
     const chosen = seat === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : seat;
     assignSeat(room, chosen, socket, name, rating);
@@ -473,7 +475,7 @@ function restartRoom(io, room) {
   const oldBlack = room.black;
   // Reset chess + clocks
   const { Chess } = require('../shared/chess-engine');
-  room.chess = new Chess();
+  room.chess = new Chess({ shape: room.shape });
   room.moveList = [];
   room.result = null;
   room.termination = null;

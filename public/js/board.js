@@ -1,10 +1,11 @@
-/* Responsive tap-and-drag chessboard renderer.
+/* Responsive tap-and-drag chessboard renderer for arbitrary board shapes.
    Pieces are rendered as Unicode glyphs (no external image assets). */
 (function (root) {
   const GLYPHS = {
     w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
     b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
   };
+  const FILE_LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 
   class Board {
     constructor(el, opts) {
@@ -12,19 +13,36 @@
       this.orientation = (opts && opts.orientation) || 'w';
       this.onMoveAttempt = (opts && opts.onMoveAttempt) || (() => {});
       this.onPromotion = (opts && opts.onPromotion) || ((from, to, finalize) => finalize('q'));
-      this.engine = new (window.ChessEngine.Chess)();
+      this.shapeName = (opts && opts.shape) || 'standard';
+      this.engine = new (window.ChessEngine.Chess)({ shape: this.shapeName });
       this.selected = null;
       this.legalTargets = [];
       this.lastMove = null;
       this.interactive = true;
-      this.viewColor = 'w'; // which color the user controls; for highlighting check
+      this.viewColor = 'w';
+      this._build();
+    }
+
+    setShape(shapeName) {
+      if (shapeName === this.shapeName) return;
+      this.shapeName = shapeName;
+      this.engine = new (window.ChessEngine.Chess)({ shape: this.shapeName });
+      this.selected = null;
+      this.legalTargets = [];
+      this.lastMove = null;
       this._build();
     }
 
     _build() {
+      const w = this.engine.shape.width;
+      const h = this.engine.shape.height;
+      this.el.style.setProperty('--cols', w);
+      this.el.style.setProperty('--rows', h);
+      this.el.style.gridTemplateColumns = `repeat(${w}, 1fr)`;
+      this.el.style.gridTemplateRows = `repeat(${h}, 1fr)`;
       this.el.innerHTML = '';
-      this.squares = {};
-      for (let i = 0; i < 64; i++) {
+      const total = w * h;
+      for (let i = 0; i < total; i++) {
         const div = document.createElement('div');
         div.className = 'sq';
         div.addEventListener('click', (e) => this._handleSquare(div, e));
@@ -38,9 +56,7 @@
       this.render();
     }
 
-    flip() {
-      this.setOrientation(this.orientation === 'w' ? 'b' : 'w');
-    }
+    flip() { this.setOrientation(this.orientation === 'w' ? 'b' : 'w'); }
 
     setInteractive(b) { this.interactive = b; }
 
@@ -57,45 +73,58 @@
       this.render();
     }
 
-    _indexFor(file, rank) {
-      // returns DOM index for given algebraic file/rank, taking orientation into account
-      if (this.orientation === 'w') return (7 - rank) * 8 + file;
-      return rank * 8 + (7 - file);
-    }
-
     _squareAtIndex(idx) {
-      let row = Math.floor(idx / 8);
-      let col = idx % 8;
+      const w = this.engine.shape.width;
+      const h = this.engine.shape.height;
+      const row = Math.floor(idx / w);
+      const col = idx % w;
       let rank, file;
-      if (this.orientation === 'w') { rank = 7 - row; file = col; }
-      else { rank = row; file = 7 - col; }
+      if (this.orientation === 'w') { rank = h - 1 - row; file = col; }
+      else { rank = row; file = w - 1 - col; }
       return [file, rank];
     }
 
+    _indexFor(file, rank) {
+      const w = this.engine.shape.width;
+      const h = this.engine.shape.height;
+      if (this.orientation === 'w') return (h - 1 - rank) * w + file;
+      return rank * w + (w - 1 - file);
+    }
+
     render() {
+      const w = this.engine.shape.width;
+      const h = this.engine.shape.height;
       const children = this.el.children;
-      for (let i = 0; i < 64; i++) {
+      const total = w * h;
+      for (let i = 0; i < total; i++) {
         const [file, rank] = this._squareAtIndex(i);
-        const isLight = (file + rank) % 2 === 1;
-        const piece = this.engine.board[rank][file];
         const sq = children[i];
-        sq.className = 'sq ' + (isLight ? 'light' : 'dark');
         sq.innerHTML = '';
-        const alg = 'abcdefgh'[file] + (rank + 1);
+        if (!this.engine.shape.mask(file, rank)) {
+          sq.className = 'sq void';
+          continue;
+        }
+        const isLight = (file + rank) % 2 === 1;
+        sq.className = 'sq ' + (isLight ? 'light' : 'dark');
+        const alg = FILE_LETTERS[file] + (rank + 1);
         sq.dataset.sq = alg;
+        const piece = this.engine.board[rank][file];
         if (piece) {
           const span = document.createElement('span');
           span.className = 'piece ' + piece.color;
           span.textContent = GLYPHS[piece.color][piece.type];
           sq.appendChild(span);
         }
-        // Coord labels on edge squares
-        const showFile = (this.orientation === 'w' && rank === 0) || (this.orientation === 'b' && rank === 7);
-        const showRank = (this.orientation === 'w' && file === 0) || (this.orientation === 'b' && file === 7);
+        // Coordinate labels: on the edge of the playable area (where there is
+        // no playable neighbour on that side, taking orientation into account).
+        const downNeighbourRank = this.orientation === 'w' ? rank - 1 : rank + 1;
+        const leftNeighbourFile = this.orientation === 'w' ? file - 1 : file + 1;
+        const showFile = !this.engine.isPlayable(file, downNeighbourRank);
+        const showRank = !this.engine.isPlayable(leftNeighbourFile, rank);
         if (showFile) {
           const c = document.createElement('span');
           c.className = 'coord file';
-          c.textContent = 'abcdefgh'[file];
+          c.textContent = FILE_LETTERS[file];
           sq.appendChild(c);
         }
         if (showRank) {
@@ -118,7 +147,6 @@
       if (this.engine.inCheck()) {
         const king = this.engine.findKing(this.engine.turn);
         if (king) {
-          const alg = 'abcdefgh'[king[0]] + (king[1] + 1);
           const idx = this._indexFor(king[0], king[1]);
           children[idx].classList.add('check');
         }
@@ -128,8 +156,8 @@
     _handleSquare(div, _ev) {
       if (!this.interactive) return;
       const alg = div.dataset.sq;
+      if (!alg) return; // void square
       const piece = this.engine.pieceAt(alg);
-      // If a piece is already selected and clicked target is a legal target, do move.
       if (this.selected) {
         const target = this.legalTargets.find((t) => t.to === alg);
         if (target) {
@@ -146,12 +174,10 @@
           }
           return;
         }
-        // Click on own piece: switch selection.
         if (piece && piece.color === this.engine.turn && piece.color === this.viewColor) {
           this._select(alg);
           return;
         }
-        // Else deselect
         this.selected = null;
         this.legalTargets = [];
         this.render();
@@ -168,7 +194,6 @@
     }
 
     applyMove(move) {
-      // Trust the server's FEN to stay in sync even if engines drift.
       if (move.fen) this.engine.load(move.fen);
       else this.engine.move({ from: move.from, to: move.to, promotion: move.promotion || undefined });
       this.selected = null;
