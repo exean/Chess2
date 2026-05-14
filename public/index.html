@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1d23" />
+  <title>Chess2 - Online Schach</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="page-lobby">
+  <header class="topbar">
+    <a href="/" class="brand">Chess2</a>
+    <div class="topbar-spacer"></div>
+    <div id="auth-area" class="auth-area">
+      <button id="btn-show-login" class="btn btn-ghost">Login</button>
+      <button id="btn-show-register" class="btn btn-ghost">Account erstellen</button>
+    </div>
+  </header>
+
+  <main class="lobby">
+    <section class="card hero">
+      <h1>Online Schach mit Freunden</h1>
+      <p class="muted">Spiele live auf jedem Gerät. Erstelle einen Raum und teile den Code, oder tritt einer offenen Partie bei.</p>
+      <label for="nickname">Dein Nickname</label>
+      <input id="nickname" type="text" maxlength="32" placeholder="z.B. Bauer42" autocomplete="nickname" />
+      <p id="logged-in-as" class="muted hidden"></p>
+    </section>
+
+    <section class="card">
+      <h2>Neuen Raum erstellen</h2>
+      <div class="row">
+        <label>Zeit (Minuten)
+          <select id="tc-initial">
+            <option value="0">Ohne Uhr</option>
+            <option value="1">1 (Bullet)</option>
+            <option value="3" selected>3 (Blitz)</option>
+            <option value="5">5</option>
+            <option value="10">10 (Rapid)</option>
+            <option value="15">15</option>
+            <option value="30">30</option>
+          </select>
+        </label>
+        <label>Inkrement (Sek.)
+          <select id="tc-increment">
+            <option value="0">0</option>
+            <option value="2" selected>2</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label>Farbe
+          <select id="seat">
+            <option value="random" selected>Zufällig</option>
+            <option value="w">Weiß</option>
+            <option value="b">Schwarz</option>
+          </select>
+        </label>
+        <label>Sichtbarkeit
+          <select id="visibility">
+            <option value="private" selected>Privat (Code)</option>
+            <option value="public">Öffentlich</option>
+          </select>
+        </label>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="rated" /> Bewertet (nur mit Account)
+      </label>
+      <button id="btn-create" class="btn btn-primary">Raum erstellen</button>
+    </section>
+
+    <section class="card">
+      <h2>Raum beitreten</h2>
+      <div class="row">
+        <input id="join-code" type="text" maxlength="6" placeholder="Code (z.B. AB3D9)" inputmode="text" autocapitalize="characters" />
+        <button id="btn-join" class="btn btn-primary">Beitreten</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Offene Partien</h2>
+      <ul id="public-list" class="list"><li class="muted">Lade...</li></ul>
+      <button id="btn-refresh" class="btn btn-ghost">Aktualisieren</button>
+    </section>
+
+    <section class="card">
+      <h2>Bestenliste</h2>
+      <ol id="leaderboard" class="list"><li class="muted">Lade...</li></ol>
+    </section>
+  </main>
+
+  <div id="auth-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <button class="modal-close" data-close>×</button>
+      <h2 id="auth-title">Login</h2>
+      <form id="auth-form">
+        <label>Username
+          <input type="text" name="username" maxlength="32" required autocomplete="username" />
+        </label>
+        <label>Passwort
+          <input type="password" name="password" minlength="6" required autocomplete="current-password" />
+        </label>
+        <p id="auth-error" class="error hidden"></p>
+        <button type="submit" class="btn btn-primary">OK</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/lobby.js"></script>
+</body>
+</html>

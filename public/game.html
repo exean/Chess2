@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1d23" />
+  <title>Chess2 - Partie</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="page-game">
+  <header class="topbar">
+    <a href="/" class="brand">Chess2</a>
+    <div id="room-info" class="room-info"></div>
+    <button id="btn-flip" class="btn btn-ghost" title="Brett drehen">↻</button>
+  </header>
+
+  <main class="game">
+    <section class="board-panel">
+      <div id="player-top" class="player-card">
+        <span class="player-name">…</span>
+        <span class="player-rating"></span>
+        <span class="player-clock" data-clock="top">--:--</span>
+      </div>
+      <div id="board" class="board" role="grid" aria-label="Schachbrett"></div>
+      <div id="player-bottom" class="player-card">
+        <span class="player-name">…</span>
+        <span class="player-rating"></span>
+        <span class="player-clock" data-clock="bottom">--:--</span>
+      </div>
+      <div class="game-actions">
+        <button id="btn-resign" class="btn btn-danger" disabled>Aufgeben</button>
+        <button id="btn-draw" class="btn btn-ghost" disabled>Remis anbieten</button>
+        <button id="btn-rematch" class="btn btn-primary hidden">Revanche</button>
+        <button id="btn-leave" class="btn btn-ghost">Verlassen</button>
+      </div>
+      <p id="status-line" class="status muted"></p>
+    </section>
+
+    <aside class="side-panel">
+      <div class="moves card">
+        <h3>Züge</h3>
+        <ol id="move-list" class="move-list"></ol>
+      </div>
+      <div class="chat card">
+        <h3>Chat</h3>
+        <div id="chat-log" class="chat-log"></div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" type="text" maxlength="500" placeholder="Nachricht..." autocomplete="off" />
+          <button class="btn btn-primary" type="submit">Senden</button>
+        </form>
+      </div>
+    </aside>
+  </main>
+
+  <div id="promo-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content small">
+      <h3>Bauernumwandlung</h3>
+      <div class="promo-choices">
+        <button class="promo-btn" data-promo="q">♕</button>
+        <button class="promo-btn" data-promo="r">♖</button>
+        <button class="promo-btn" data-promo="b">♗</button>
+        <button class="promo-btn" data-promo="n">♘</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="end-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <h2 id="end-title">Partie beendet</h2>
+      <p id="end-detail"></p>
+      <div class="row">
+        <button id="end-rematch" class="btn btn-primary">Revanche</button>
+        <button id="end-leave" class="btn btn-ghost">Verlassen</button>
+      </div>
+      <details>
+        <summary>PGN</summary>
+        <pre id="end-pgn" class="pgn"></pre>
+      </details>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/lib/chess-engine.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/board.js"></script>
+  <script src="/js/game.js"></script>
+</body>
+</html>

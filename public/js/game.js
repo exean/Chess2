@@ -1,0 +1,362 @@
+(function () {
+  const Api = window.Chess2Api;
+  const params = new URLSearchParams(location.search);
+  const code = (params.get('code') || '').toUpperCase();
+  if (!code) { location.href = '/'; return; }
+
+  const socket = io({ autoConnect: true });
+  const els = {
+    board: document.getElementById('board'),
+    roomInfo: document.getElementById('room-info'),
+    playerTop: document.getElementById('player-top'),
+    playerBottom: document.getElementById('player-bottom'),
+    btnFlip: document.getElementById('btn-flip'),
+    btnResign: document.getElementById('btn-resign'),
+    btnDraw: document.getElementById('btn-draw'),
+    btnLeave: document.getElementById('btn-leave'),
+    btnRematch: document.getElementById('btn-rematch'),
+    moveList: document.getElementById('move-list'),
+    chatLog: document.getElementById('chat-log'),
+    chatForm: document.getElementById('chat-form'),
+    chatInput: document.getElementById('chat-input'),
+    status: document.getElementById('status-line'),
+    promoModal: document.getElementById('promo-modal'),
+    endModal: document.getElementById('end-modal'),
+    endTitle: document.getElementById('end-title'),
+    endDetail: document.getElementById('end-detail'),
+    endPgn: document.getElementById('end-pgn'),
+    endRematch: document.getElementById('end-rematch'),
+    endLeave: document.getElementById('end-leave'),
+  };
+
+  let myColor = null; // 'w' | 'b' | 'spectator'
+  let mySeatToken = null;
+  let state = null;
+  let promoCallback = null;
+  let clockTimer = null;
+  let lastClock = null;
+  let lastClockReceivedAt = 0;
+
+  const board = new Chess2Board(els.board, {
+    onMoveAttempt: ({ from, to, promotion }) => {
+      socket.emit('game:move', { from, to, promotion }, (res) => {
+        if (res && res.error) setStatus(res.error);
+      });
+    },
+    onPromotion: (from, to, finalize) => {
+      promoCallback = finalize;
+      els.promoModal.classList.remove('hidden');
+    },
+  });
+
+  els.promoModal.querySelectorAll('.promo-btn').forEach((b) => {
+    b.addEventListener('click', () => {
+      els.promoModal.classList.add('hidden');
+      const fn = promoCallback;
+      promoCallback = null;
+      if (fn) fn(b.dataset.promo);
+    });
+  });
+
+  function setStatus(msg) { els.status.textContent = msg || ''; }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"'`]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;','`':'&#96;' }[c]));
+  }
+
+  function formatClock(ms) {
+    if (ms == null) return '--:--';
+    if (ms < 0) ms = 0;
+    const total = Math.ceil(ms / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    if (ms < 10000) {
+      const tenths = Math.floor((ms % 1000) / 100);
+      return m + ':' + String(s).padStart(2, '0') + '.' + tenths;
+    }
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
+  function updatePlayers() {
+    if (!state) return;
+    const topColor = (myColor === 'b') ? 'w' : 'b';
+    const bottomColor = (myColor === 'b') ? 'b' : 'w';
+    paintPlayer(els.playerTop, topColor);
+    paintPlayer(els.playerBottom, bottomColor);
+    els.roomInfo.textContent = 'Raum ' + state.code +
+      (state.timeControl.initial
+        ? ' • ' + Math.round(state.timeControl.initial / 60) + '+' + state.timeControl.increment
+        : ' • ohne Uhr') +
+      (state.rated ? ' • bewertet' : '');
+  }
+
+  function paintPlayer(el, color) {
+    const seat = color === 'w' ? state.white : state.black;
+    const nameEl = el.querySelector('.player-name');
+    const ratingEl = el.querySelector('.player-rating');
+    if (seat) {
+      nameEl.textContent = seat.name + (color === state.turn && state.status === 'active' ? ' •' : '');
+      ratingEl.textContent = seat.rating ? '(' + seat.rating + ')' : '';
+      el.classList.toggle('disconnected', !seat.connected);
+    } else {
+      nameEl.textContent = '(wartet auf Spieler...)';
+      ratingEl.textContent = '';
+      el.classList.remove('disconnected');
+    }
+  }
+
+  function refreshClocks() {
+    if (!state) return;
+    let whiteMs = null, blackMs = null;
+    if (state.clock) {
+      whiteMs = state.clock.whiteMs;
+      blackMs = state.clock.blackMs;
+      if (state.status === 'active' && lastClock && lastClockReceivedAt) {
+        const drift = Date.now() - lastClockReceivedAt;
+        if (state.turn === 'w') whiteMs = Math.max(0, lastClock.whiteMs - drift);
+        else blackMs = Math.max(0, lastClock.blackMs - drift);
+      }
+    }
+    const topColor = (myColor === 'b') ? 'w' : 'b';
+    const bottomColor = (myColor === 'b') ? 'b' : 'w';
+    const topMs = topColor === 'w' ? whiteMs : blackMs;
+    const bottomMs = bottomColor === 'w' ? whiteMs : blackMs;
+    const topEl = els.playerTop.querySelector('.player-clock');
+    const bottomEl = els.playerBottom.querySelector('.player-clock');
+    topEl.textContent = formatClock(topMs);
+    bottomEl.textContent = formatClock(bottomMs);
+    if (!state.clock) { topEl.classList.add('hidden'); bottomEl.classList.add('hidden'); }
+    else { topEl.classList.remove('hidden'); bottomEl.classList.remove('hidden'); }
+    topEl.classList.toggle('active', state.status === 'active' && state.turn === topColor);
+    bottomEl.classList.toggle('active', state.status === 'active' && state.turn === bottomColor);
+    topEl.classList.toggle('low', topMs != null && topMs < 10000);
+    bottomEl.classList.toggle('low', bottomMs != null && bottomMs < 10000);
+
+    // Claim timeout if opponent flag fell (defensive; server checks too).
+    if (state.status === 'active') {
+      if (whiteMs === 0 || blackMs === 0) socket.emit('game:claim_timeout');
+    }
+  }
+
+  function renderMoves() {
+    if (!state) return;
+    els.moveList.innerHTML = '';
+    const moves = state.moves || [];
+    for (let i = 0; i < moves.length; i += 2) {
+      const num = document.createElement('li');
+      num.className = 'num';
+      num.textContent = (i / 2 + 1) + '.';
+      const w = document.createElement('li');
+      w.className = 'ply';
+      w.textContent = moves[i].san;
+      const b = document.createElement('li');
+      b.className = 'ply';
+      if (moves[i + 1]) b.textContent = moves[i + 1].san;
+      if (i + 2 >= moves.length) {
+        (moves[i + 1] ? b : w).classList.add('last');
+      }
+      els.moveList.appendChild(num);
+      els.moveList.appendChild(w);
+      els.moveList.appendChild(b);
+    }
+    els.moveList.parentElement.scrollTop = els.moveList.parentElement.scrollHeight;
+  }
+
+  function renderStatus() {
+    if (!state) return;
+    let msg = '';
+    if (state.status === 'waiting') msg = 'Warte auf zweiten Spieler. Code: ' + state.code;
+    else if (state.status === 'active') {
+      msg = state.turn === 'w' ? 'Weiß am Zug' : 'Schwarz am Zug';
+      if (state.drawOffer && state.drawOffer.by !== myColor) msg += ' • Gegner bietet Remis (im Chat annehmen mit /draw)';
+      else if (state.drawOffer && state.drawOffer.by === myColor) msg += ' • Remis-Angebot gesendet';
+    } else if (state.status === 'finished') {
+      const labels = {
+        checkmate: 'Schachmatt',
+        resignation: 'Aufgegeben',
+        timeout: 'Zeit abgelaufen',
+        draw_agreement: 'Remis vereinbart',
+        stalemate: 'Patt',
+        insufficient_material: 'Unzureichendes Material',
+        threefold_repetition: 'Stellungswiederholung',
+        fifty_move_rule: '50-Züge-Regel',
+      };
+      msg = (labels[state.termination] || 'Beendet') + ' • Ergebnis: ' + state.result;
+    }
+    setStatus(msg);
+  }
+
+  function refreshFromState(newState) {
+    state = newState;
+    if (state.fen) {
+      // Only replace position if engine differs (avoid wiping in-progress selection)
+      if (board.engine.fen() !== state.fen) board.setPosition(state.fen);
+    }
+    if (state.moves && state.moves.length) {
+      const last = state.moves[state.moves.length - 1];
+      board.setLastMove({ from: last.from, to: last.to });
+    } else {
+      board.setLastMove(null);
+    }
+    board.viewColor = myColor === 'b' ? 'b' : 'w';
+    board.setInteractive(state.status === 'active' && (myColor === 'w' || myColor === 'b') && myColor === state.turn);
+    board.setOrientation(myColor === 'b' ? 'b' : 'w');
+    lastClock = state.clock ? { whiteMs: state.clock.whiteMs, blackMs: state.clock.blackMs } : null;
+    lastClockReceivedAt = Date.now();
+    updatePlayers();
+    refreshClocks();
+    renderMoves();
+    renderStatus();
+    updateActionButtons();
+  }
+
+  function updateActionButtons() {
+    const isPlayer = myColor === 'w' || myColor === 'b';
+    const active = state && state.status === 'active' && isPlayer;
+    els.btnResign.disabled = !active;
+    els.btnDraw.disabled = !active;
+    els.btnRematch.classList.toggle('hidden', !(state && state.status === 'finished' && isPlayer));
+  }
+
+  function appendChat(msg) {
+    const div = document.createElement('div');
+    div.className = 'msg';
+    const who = document.createElement('span');
+    who.className = 'who ' + (msg.color || 'system');
+    who.textContent = msg.name + ':';
+    div.appendChild(who);
+    div.appendChild(document.createTextNode(' ' + msg.text));
+    els.chatLog.appendChild(div);
+    els.chatLog.scrollTop = els.chatLog.scrollHeight;
+  }
+
+  function joinRoom() {
+    const seat = Api.loadSeat(code);
+    if (seat) {
+      myColor = seat.color;
+      mySeatToken = seat.seatToken;
+    }
+    const name = Api.getName();
+    socket.emit('room:join', {
+      code,
+      name: name || ('Gast-' + Math.floor(Math.random() * 999)),
+      seatToken: mySeatToken,
+    }, (res) => {
+      if (res && res.error) { alert(res.error); location.href = '/'; return; }
+      myColor = res.color;
+      if (res.seatToken) {
+        mySeatToken = res.seatToken;
+        Api.saveSeat(code, myColor, mySeatToken);
+      }
+      refreshFromState(res.state);
+      // Load chat history for late joiners
+      socket.emit('room:chat_history', null, (r) => {
+        if (r && r.messages) r.messages.forEach(appendChat);
+      });
+    });
+  }
+
+  // Button handlers
+  els.btnFlip.addEventListener('click', () => board.flip());
+  els.btnLeave.addEventListener('click', () => {
+    if (!confirm('Wirklich verlassen?')) return;
+    socket.emit('room:leave');
+    Api.clearSeat(code);
+    location.href = '/';
+  });
+  els.btnResign.addEventListener('click', () => {
+    if (!confirm('Wirklich aufgeben?')) return;
+    socket.emit('game:resign');
+  });
+  els.btnDraw.addEventListener('click', () => {
+    if (state.drawOffer && state.drawOffer.by !== myColor) socket.emit('game:draw_accept');
+    else socket.emit('game:draw_offer');
+  });
+  els.btnRematch.addEventListener('click', () => socket.emit('game:rematch_offer'));
+  els.endRematch.addEventListener('click', () => {
+    socket.emit('game:rematch_offer');
+    els.endModal.classList.add('hidden');
+  });
+  els.endLeave.addEventListener('click', () => {
+    socket.emit('room:leave');
+    Api.clearSeat(code);
+    location.href = '/';
+  });
+
+  els.chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = els.chatInput.value.trim();
+    if (!text) return;
+    if (text === '/draw') {
+      socket.emit('game:draw_accept');
+    } else if (text === '/resign') {
+      socket.emit('game:resign');
+    } else {
+      socket.emit('chat:send', { text });
+    }
+    els.chatInput.value = '';
+  });
+
+  // Socket events
+  socket.on('connect', () => {
+    socket.emit('auth', { token: Api.getToken() }, () => joinRoom());
+  });
+  socket.on('room:state', (s) => { if (s.code === code) refreshFromState(s); });
+  socket.on('game:move', (data) => {
+    if (state && data.move) {
+      state.moves = (state.moves || []).concat(data.move);
+      state.fen = data.fen;
+      state.turn = data.turn;
+      state.clock = data.clock;
+      lastClock = data.clock ? { whiteMs: data.clock.whiteMs, blackMs: data.clock.blackMs } : null;
+      lastClockReceivedAt = Date.now();
+      board.applyMove(data.move);
+      board.setInteractive(state.status === 'active' && (myColor === 'w' || myColor === 'b') && myColor === state.turn);
+      renderMoves();
+      renderStatus();
+      refreshClocks();
+    }
+  });
+  socket.on('clock:tick', (snap) => {
+    if (!state) return;
+    state.clock = snap;
+    lastClock = snap ? { whiteMs: snap.whiteMs, blackMs: snap.blackMs } : null;
+    lastClockReceivedAt = Date.now();
+    refreshClocks();
+  });
+  socket.on('game:end', (data) => {
+    showEndModal(data);
+  });
+  socket.on('game:restart', (s) => {
+    Api.saveSeat(code, myColor === 'w' ? 'b' : 'w', mySeatToken);
+    myColor = myColor === 'w' ? 'b' : 'w';
+    els.endModal.classList.add('hidden');
+    refreshFromState(s);
+  });
+  socket.on('chat:message', (msg) => appendChat(msg));
+  socket.on('app:error', (e) => setStatus(e.message));
+
+  function showEndModal(data) {
+    const labels = {
+      checkmate: 'Schachmatt',
+      resignation: 'Aufgegeben',
+      timeout: 'Zeit abgelaufen',
+      draw_agreement: 'Remis vereinbart',
+      stalemate: 'Patt',
+      insufficient_material: 'Unzureichendes Material',
+      threefold_repetition: 'Stellungswiederholung',
+      fifty_move_rule: '50-Züge-Regel',
+    };
+    let outcome = 'Remis';
+    if (data.result === '1-0') outcome = 'Weiß gewinnt';
+    else if (data.result === '0-1') outcome = 'Schwarz gewinnt';
+    els.endTitle.textContent = outcome;
+    els.endDetail.textContent = labels[data.termination] || data.termination || '';
+    els.endPgn.textContent = data.pgn || '';
+    els.endModal.classList.remove('hidden');
+  }
+
+  // Local tick for smooth clock display between server updates.
+  clockTimer = setInterval(refreshClocks, 200);
+  window.addEventListener('beforeunload', () => clearInterval(clockTimer));
+})();
