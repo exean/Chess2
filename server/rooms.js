@@ -62,6 +62,7 @@ function publicSeat(seat) {
     rating: seat.rating || null,
     connected: seat.connected,
     bot: seat.bot ? { difficulty: seat.bot.difficulty } : null,
+    voiceActive: Boolean(seat.voiceActive),
   };
 }
 

@@ -55,6 +55,11 @@
         <button id="btn-rematch" class="btn btn-primary hidden">Revanche</button>
         <button id="btn-leave" class="btn btn-ghost">Verlassen</button>
       </div>
+      <div class="voice-bar" id="voice-bar">
+        <button id="btn-voice" class="btn btn-ghost" title="Sprachchat ein-/ausschalten" disabled>🎙️ Stimme</button>
+        <button id="btn-mute" class="btn btn-ghost hidden" title="Mikrofon stumm schalten">🔇 Stumm</button>
+        <span id="voice-status" class="voice-status muted"></span>
+      </div>
       <p id="status-line" class="status muted"></p>
     </section>
 
@@ -120,6 +125,7 @@
   <script src="/js/pieces.js"></script>
   <script src="/js/topbar.js"></script>
   <script src="/js/board.js"></script>
+  <script src="/js/voice.js"></script>
   <script src="/js/game.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

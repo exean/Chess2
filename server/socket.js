@@ -474,16 +474,60 @@ function registerHandlers(io, socket) {
     ack && ack({ messages: room.chat });
   });
 
+  // --- Voice chat signaling ----------------------------------------------
+  // The server is just a dumb relay between the two seats. It also tracks
+  // each seat's voice-active flag so the second-to-activate side knows to
+  // open the WebRTC offer.
+  socket.on('voice:signal', (data) => {
+    const room = getCurrentRoom(socket);
+    if (!room) return;
+    const seatInfo = seatBySocket(room, socket.id);
+    if (!seatInfo) return;
+    const opponent = seatInfo.color === 'w' ? room.black : room.white;
+    if (!opponent || !opponent.socketId) return;
+    io.to(opponent.socketId).emit('voice:signal', data);
+  });
+
+  socket.on('voice:state', (data) => {
+    const room = getCurrentRoom(socket);
+    if (!room) return;
+    const seatInfo = seatBySocket(room, socket.id);
+    if (!seatInfo) return;
+    const mySeat = seatInfo.color === 'w' ? room.white : room.black;
+    const otherSeat = seatInfo.color === 'w' ? room.black : room.white;
+    const wasActive = Boolean(mySeat.voiceActive);
+    mySeat.voiceActive = Boolean(data && data.active);
+    emitRoomState(io, room);
+    if (!wasActive && mySeat.voiceActive && otherSeat && otherSeat.voiceActive) {
+      // Both sides active now. The side that just enabled becomes the offerer.
+      socket.emit('voice:start', { role: 'offerer' });
+      if (otherSeat.socketId) io.to(otherSeat.socketId).emit('voice:start', { role: 'answerer' });
+    } else if (wasActive && !mySeat.voiceActive && otherSeat && otherSeat.socketId) {
+      io.to(otherSeat.socketId).emit('voice:peer-left');
+    }
+  });
+
   socket.on('disconnect', () => {
     const code = userIndex.get(socket.id);
     userIndex.delete(socket.id);
     if (!code) return;
     const room = getRoom(code);
     if (!room) return;
-    if (room.white && room.white.socketId === socket.id) room.white.connected = false;
-    if (room.black && room.black.socketId === socket.id) room.black.connected = false;
+    let droppedColor = null;
+    if (room.white && room.white.socketId === socket.id) {
+      room.white.connected = false;
+      if (room.white.voiceActive) { room.white.voiceActive = false; droppedColor = 'w'; }
+    }
+    if (room.black && room.black.socketId === socket.id) {
+      room.black.connected = false;
+      if (room.black.voiceActive) { room.black.voiceActive = false; droppedColor = 'b'; }
+    }
     room.spectators = room.spectators.filter((s) => s.socketId !== socket.id);
     room.lastActivity = Date.now();
+    if (droppedColor) {
+      const otherSeat = droppedColor === 'w' ? room.black : room.white;
+      if (otherSeat && otherSeat.socketId) io.to(otherSeat.socketId).emit('voice:peer-left');
+    }
     emitRoomState(io, room);
   });
 }

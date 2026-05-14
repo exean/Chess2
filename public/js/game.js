@@ -35,6 +35,10 @@
     btnShare: document.getElementById('btn-share'),
     nameModal: document.getElementById('name-modal'),
     nameForm: document.getElementById('name-form'),
+    voiceBar: document.getElementById('voice-bar'),
+    btnVoice: document.getElementById('btn-voice'),
+    btnMute: document.getElementById('btn-mute'),
+    voiceStatus: document.getElementById('voice-status'),
   };
 
   let myColor = null; // 'w' | 'b' | 'spectator'
@@ -455,7 +459,79 @@
     els.endModal.classList.remove('hidden');
   }
 
+  // ---- Voice chat ---------------------------------------------------------
+  let voice = null;
+  function setupVoice() {
+    if (voice) return;
+    if (!window.Chess2Voice || !navigator.mediaDevices) {
+      els.voiceStatus.textContent = 'Sprachchat im Browser nicht verfügbar';
+      return;
+    }
+    voice = new window.Chess2Voice.VoiceChat(socket);
+    voice.onStateChange = renderVoice;
+    voice.onLevel = (which, level) => {
+      const playerEl = whichPlayerEl(which);
+      if (playerEl) {
+        playerEl.style.setProperty('--speak-level', String(Math.min(1, level * 5)));
+        playerEl.classList.toggle('speaking', level > 0.04);
+      }
+    };
+    renderVoice();
+  }
+
+  function whichPlayerEl(which) {
+    // 'local' -> me, 'remote' -> opponent. Map to bottom/top player cards.
+    if (which === 'local') return els.playerBottom;
+    if (which === 'remote') return els.playerTop;
+    return null;
+  }
+
+  function renderVoice() {
+    if (!voice) return;
+    const isPlayer = myColor === 'w' || myColor === 'b';
+    const finished = state && state.status === 'finished';
+    els.btnVoice.disabled = !isPlayer || finished || voice.state === 'enabling';
+    const labels = {
+      idle: '🎙️ Stimme',
+      enabling: '… Mikrofon wird angefragt',
+      waiting: '⏳ Wartet auf Gegner',
+      connecting: '… Verbinde',
+      connected: '🔴 Stimme aktiv',
+      error: '⚠️ Stimme aus',
+    };
+    els.btnVoice.textContent = labels[voice.state] || 'Stimme';
+    els.btnMute.classList.toggle('hidden', voice.state === 'idle' || !voice.localStream);
+    els.btnMute.textContent = voice.muted ? '🔊 Aufheben' : '🔇 Stumm';
+    const status = {
+      idle: '',
+      enabling: 'Mikrofon-Berechtigung wird angefragt…',
+      waiting: 'Mikrofon ist an. Sobald dein Gegner Stimme aktiviert, wird verbunden.',
+      connecting: 'Baue Peer-Verbindung auf…',
+      connected: voice.muted ? 'Du bist stummgeschaltet.' : 'Direkter Audio-Channel zwischen euch beiden.',
+      error: voice.error || 'Sprach-Verbindung fehlgeschlagen.',
+    };
+    els.voiceStatus.textContent = status[voice.state] || '';
+  }
+
+  els.btnVoice.addEventListener('click', () => {
+    if (!voice) return;
+    if (voice.state === 'idle' || voice.state === 'error') voice.enable();
+    else voice.disable();
+  });
+  els.btnMute.addEventListener('click', () => { if (voice) voice.toggleMute(); });
+
+  setupVoice();
+  // Re-render on each state refresh so the button enabled-state matches.
+  const _origRefreshFromState = refreshFromState;
+  refreshFromState = function (newState) {
+    _origRefreshFromState(newState);
+    renderVoice();
+  };
+
   // Local tick for smooth clock display between server updates.
   clockTimer = setInterval(refreshClocks, 200);
-  window.addEventListener('beforeunload', () => clearInterval(clockTimer));
+  window.addEventListener('beforeunload', () => {
+    clearInterval(clockTimer);
+    if (voice) voice.disable();
+  });
 })();

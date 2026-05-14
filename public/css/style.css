@@ -183,6 +183,30 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
   color: var(--warn);
   font-size: .8rem;
 }
+.player-card {
+  --speak-level: 0;
+  transition: box-shadow .15s linear;
+  position: relative;
+}
+.player-card.speaking {
+  box-shadow: 0 0 0 calc(2px + var(--speak-level) * 6px) rgba(93, 211, 158, calc(0.4 + var(--speak-level) * 0.4)) inset;
+}
+.voice-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+.voice-bar .btn { flex: 0 0 auto; }
+.voice-status {
+  flex: 1 1 100%;
+  font-size: .8rem;
+  color: var(--fg-dim);
+}
+@media (min-width: 600px) {
+  .voice-status { flex: 1; }
+}
 
 .board {
   --cols: 8;
