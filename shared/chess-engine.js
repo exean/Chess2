@@ -236,6 +236,8 @@
       return `${f[0]} ${f[1]} ${f[2]} ${f[3]}`;
     }
 
+    positionKey() { return this._positionKey(); }
+
     _recordPosition() {
       const k = this._positionKey();
       this.posCount[k] = (this.posCount[k] || 0) + 1;

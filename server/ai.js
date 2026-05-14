@@ -1,19 +1,23 @@
 'use strict';
-/* Simple chess AI: iterative-deepening minimax with alpha-beta pruning
- * and a lightweight material+mobility evaluation. Works on any of the
- * shapes supported by ../shared/chess-engine.js (the move generator and
- * legality rules are reused as-is, so no board-size assumptions leak in).
+/* Simple chess AI: iterative-deepening minimax with alpha-beta pruning,
+ * a lightweight material+mobility evaluation, and a small opening book
+ * for standard 8x8 games. Works on any shape supported by the engine.
+ * Lower difficulties make occasional blunders and pick noisier moves.
  */
+
+const book = require('./opening-book');
 
 const PIECE_VALUE = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
 
-// Difficulty -> { maxDepth, timeBudgetMs, noise }.
-// `noise` adds a tiny random tiebreaker so the lowest difficulty doesn't
-// always play identically from the starting position.
+// Difficulty -> { maxDepth, timeBudgetMs, noise, blunderProb }.
+//   noise:       max cp delta from best for the random pick among "good enough" moves.
+//   blunderProb: chance to ignore search results and play a random legal move instead.
+// Lower difficulties have looser noise and a higher blunder rate. The opening
+// book is always consulted first regardless of difficulty.
 const DIFFICULTY = {
-  easy:   { maxDepth: 2, timeBudgetMs: 300,  noise: 40 },
-  medium: { maxDepth: 3, timeBudgetMs: 1000, noise: 8  },
-  hard:   { maxDepth: 4, timeBudgetMs: 2500, noise: 0  },
+  easy:   { maxDepth: 2, timeBudgetMs: 300,  noise: 120, blunderProb: 0.20 },
+  medium: { maxDepth: 3, timeBudgetMs: 1000, noise: 30,  blunderProb: 0.05 },
+  hard:   { maxDepth: 4, timeBudgetMs: 2500, noise: 5,   blunderProb: 0 },
 };
 
 const MATE_SCORE = 1000000;
@@ -97,10 +101,29 @@ function search(chess, depth, alpha, beta, deadline) {
 // Pick a move using iterative deepening up to the configured depth/time.
 function chooseMove(chess, difficulty) {
   const cfg = DIFFICULTY[difficulty] || DIFFICULTY.medium;
-  const deadline = Date.now() + cfg.timeBudgetMs;
+
+  // 1. Opening book: same lines for every difficulty - knowing the openings
+  // is a knowledge thing, not a strength thing. Random pick among the
+  // book's options at this position gives variety between games.
+  const bookMoves = book.lookup(chess);
+  if (bookMoves && bookMoves.length) {
+    const pick = bookMoves[Math.floor(Math.random() * bookMoves.length)];
+    return { from: pick.from, to: pick.to, promotion: pick.promotion || undefined };
+  }
+
   const legal = chess.generateLegalMoves();
   if (legal.length === 0) return null;
 
+  // 2. Random blunder: lower difficulties sometimes throw the search away
+  // entirely and play a random legal move. This is the main source of
+  // beginner-style mistakes.
+  if (cfg.blunderProb > 0 && Math.random() < cfg.blunderProb) {
+    const m = legal[Math.floor(Math.random() * legal.length)];
+    return toWire(m);
+  }
+
+  // 3. Iterative-deepening alpha-beta search.
+  const deadline = Date.now() + cfg.timeBudgetMs;
   let bestMove = legal[Math.floor(Math.random() * legal.length)];
   let bestScore = chess.turn === 'w' ? -Infinity : Infinity;
 
@@ -114,8 +137,8 @@ function chooseMove(chess, difficulty) {
     if (Math.abs(result.score) > MATE_SCORE / 2) break; // forced mate found
   }
 
-  // Optional noise: among moves whose score is within `noise` of the best,
-  // pick one at random.
+  // 4. Noise: among moves within `noise` cp of the best, pick one at random.
+  // Easy uses a wide window so the bot routinely plays second-best moves.
   if (cfg.noise > 0) {
     const candidates = [];
     for (const m of legal) {
@@ -130,10 +153,14 @@ function chooseMove(chess, difficulty) {
     if (within.length > 1) bestMove = within[Math.floor(Math.random() * within.length)].m;
   }
 
+  return toWire(bestMove);
+}
+
+function toWire(m) {
   return {
-    from: window_sqToAlg(bestMove.from[0], bestMove.from[1]),
-    to:   window_sqToAlg(bestMove.to[0],   bestMove.to[1]),
-    promotion: bestMove.promotion || undefined,
+    from: window_sqToAlg(m.from[0], m.from[1]),
+    to:   window_sqToAlg(m.to[0],   m.to[1]),
+    promotion: m.promotion || undefined,
   };
 }
 
