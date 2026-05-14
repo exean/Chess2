@@ -80,6 +80,31 @@ Im Browser: <http://localhost:3000>
 - Backup: die `games`-Tabelle wächst je Partie um eine Zeile (mit PGN).
   Bei Bedarf in Plesk per Cronjob alte Spiele archivieren.
 
+## Eigene Figuren-Sets installieren
+
+Chess2 bringt zwei eingebaute Sets mit (`Unicode` und `Modern`). Weitere Sets
+werden automatisch erkannt: Lege einfach einen Ordner in `public/pieces/<name>/`
+ab, der die 12 SVG-Dateien `wp.svg wn.svg wb.svg wr.svg wq.svg wk.svg bp.svg
+bn.svg bb.svg br.svg bq.svg bk.svg` enthält - der Server zeigt das Set dann in
+der Auswahlleiste an. Kein Code-Edit nötig, App-Neustart reicht.
+
+Freie Quellen:
+
+- **Cburnett** (CC BY-SA 3.0) - der "Standard" der meisten Open-Source-Schach-Apps,
+  liegt auf Wikimedia Commons unter den Dateinamen
+  `Chess_<klt|qlt|rlt|blt|nlt|plt|kdt|qdt|rdt|bdt|ndt|pdt>45.svg`.
+  Beim Speichern in `public/pieces/cburnett/` zu den Chess2-Namen umbenennen
+  (z.B. `Chess_klt45.svg` -> `wk.svg`, `Chess_kdt45.svg` -> `bk.svg`).
+- **Lichess Piece Sets** (GPL) - <https://github.com/lichess-org/lila> unter
+  `public/piece/<setname>/`. Dort gibt es ein gutes Dutzend Stile (`alpha`,
+  `california`, `cardinal`, `chess7`, `fantasy`, `leipzig`, `merida`, ...).
+  Die Dateinamen folgen schon dem Schema `<color><type>.svg` - direkt
+  kopieren reicht.
+- **Wikipedia Commons** - weitere Sets, meist CC-BY-SA oder Public Domain.
+
+Lizenzhinweise der jeweiligen Sets in einer `LICENSE.txt` neben den SVGs
+ablegen ist eine gute Idee (insbesondere bei CC-BY/CC-BY-SA).
+
 ## Architektur
 
 ```

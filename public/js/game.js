@@ -57,6 +57,21 @@
     },
   });
 
+  function refreshPromoButtons() {
+    const color = myColor === 'b' ? 'b' : 'w';
+    els.promoModal.querySelectorAll('.promo-btn').forEach((btn) => {
+      btn.innerHTML = '';
+      if (window.Chess2Pieces) {
+        const render = window.Chess2Pieces.getRenderer(window.Chess2Pieces.getPreferred());
+        btn.appendChild(render(btn.dataset.promo, color));
+      } else {
+        btn.textContent = btn.dataset.promo.toUpperCase();
+      }
+    });
+  }
+  refreshPromoButtons();
+  window.addEventListener('chess2:pieceset-changed', refreshPromoButtons);
+
   els.promoModal.querySelectorAll('.promo-btn').forEach((b) => {
     b.addEventListener('click', () => {
       els.promoModal.classList.add('hidden');
@@ -224,6 +239,7 @@
     board.viewColor = myColor === 'b' ? 'b' : 'w';
     board.setInteractive(state.status === 'active' && (myColor === 'w' || myColor === 'b') && myColor === state.turn);
     board.setOrientation(myColor === 'b' ? 'b' : 'w');
+    refreshPromoButtons();
     lastClock = state.clock ? { whiteMs: state.clock.whiteMs, blackMs: state.clock.blackMs } : null;
     lastClockReceivedAt = Date.now();
     updatePlayers();

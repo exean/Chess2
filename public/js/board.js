@@ -1,15 +1,23 @@
 /* Responsive tap-and-drag chessboard renderer for arbitrary board shapes.
-   Pieces are rendered as Unicode glyphs (no external image assets). */
+   Piece appearance is controlled by window.Chess2Pieces (see pieces.js). */
 (function (root) {
-  const GLYPHS = {
-    w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
-    b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
-  };
   const FILE_LETTERS = 'abcdefghijklmnopqrstuvwxyz';
+
+  function renderPiece(type, color) {
+    const renderer = (window.Chess2Pieces && window.Chess2Pieces.getRenderer(window.Chess2Pieces.getPreferred()))
+      || ((t, c) => {
+        const s = document.createElement('span');
+        s.className = 'piece ' + c;
+        s.textContent = t;
+        return s;
+      });
+    return renderer(type, color);
+  }
 
   class Board {
     constructor(el, opts) {
       this.el = el;
+      this.el.__chess2Board = this;
       this.orientation = (opts && opts.orientation) || 'w';
       this.onMoveAttempt = (opts && opts.onMoveAttempt) || (() => {});
       this.onPromotion = (opts && opts.onPromotion) || ((from, to, finalize) => finalize('q'));
@@ -114,12 +122,7 @@
         const alg = FILE_LETTERS[file] + (rank + 1);
         sq.dataset.sq = alg;
         const piece = this.engine.board[rank][file];
-        if (piece) {
-          const span = document.createElement('span');
-          span.className = 'piece ' + piece.color;
-          span.textContent = GLYPHS[piece.color][piece.type];
-          sq.appendChild(span);
-        }
+        if (piece) sq.appendChild(renderPiece(piece.type, piece.color));
         // Coordinate labels: on the edge of the playable area (where there is
         // no playable neighbour on that side, taking orientation into account).
         const downNeighbourRank = this.orientation === 'w' ? rank - 1 : rank + 1;
@@ -208,4 +211,11 @@
   }
 
   root.Chess2Board = Board;
+
+  // When the user picks a different piece set, re-render every board.
+  window.addEventListener('chess2:pieceset-changed', () => {
+    document.querySelectorAll('.board').forEach((el) => {
+      if (el.__chess2Board) el.__chess2Board.render();
+    });
+  });
 })(window);

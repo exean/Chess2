@@ -18,6 +18,7 @@
   <header class="topbar">
     <a href="/" class="brand">Chess2</a>
     <div class="topbar-spacer"></div>
+    <select id="pieces-select" class="pieces-select" title="Figurenstil" aria-label="Figurenstil"></select>
     <div id="auth-area" class="auth-area">
       <button id="btn-show-login" class="btn btn-ghost">Login</button>
       <button id="btn-show-register" class="btn btn-ghost">Account erstellen</button>
@@ -145,6 +146,8 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/api.js"></script>
+  <script src="/js/pieces.js"></script>
+  <script src="/js/topbar.js"></script>
   <script src="/js/lobby.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

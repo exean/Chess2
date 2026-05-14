@@ -18,6 +18,7 @@
   <header class="topbar">
     <a href="/" class="brand">Chess2</a>
     <div id="room-info" class="room-info"></div>
+    <select id="pieces-select" class="pieces-select" title="Figurenstil" aria-label="Figurenstil"></select>
     <button id="btn-flip" class="btn btn-ghost" title="Brett drehen">↻</button>
   </header>
 
@@ -90,10 +91,10 @@
     <div class="modal-content small">
       <h3>Bauernumwandlung</h3>
       <div class="promo-choices">
-        <button class="promo-btn" data-promo="q">♕</button>
-        <button class="promo-btn" data-promo="r">♖</button>
-        <button class="promo-btn" data-promo="b">♗</button>
-        <button class="promo-btn" data-promo="n">♘</button>
+        <button class="promo-btn" data-promo="q"></button>
+        <button class="promo-btn" data-promo="r"></button>
+        <button class="promo-btn" data-promo="b"></button>
+        <button class="promo-btn" data-promo="n"></button>
       </div>
     </div>
   </div>
@@ -116,6 +117,8 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="/lib/chess-engine.js"></script>
   <script src="/js/api.js"></script>
+  <script src="/js/pieces.js"></script>
+  <script src="/js/topbar.js"></script>
   <script src="/js/board.js"></script>
   <script src="/js/game.js"></script>
   <script>

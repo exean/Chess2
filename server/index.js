@@ -25,6 +25,27 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, db: dbAvailable(), time: new Date().toISOString() });
 });
 
+// Discover installed piece sets: subdirectories of public/pieces/ that contain
+// all 12 SVG files (w/b pieces for the 6 standard types). Lets users add a
+// new set by dropping a folder in - no code change required.
+app.get('/api/piece-sets', (_req, res) => {
+  const fs = require('fs');
+  const dir = path.join(__dirname, '..', 'public', 'pieces');
+  let entries = [];
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { /* dir missing - empty */ }
+  const out = [];
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    const setDir = path.join(dir, e.name);
+    const required = ['p','n','b','r','q','k'].flatMap((t) => [`w${t}.svg`, `b${t}.svg`]);
+    const ok = required.every((f) => {
+      try { return fs.statSync(path.join(setDir, f)).isFile(); } catch { return false; }
+    });
+    if (ok) out.push({ id: e.name, name: e.name.charAt(0).toUpperCase() + e.name.slice(1) });
+  }
+  res.json({ sets: out });
+});
+
 app.get('/api/qr', async (req, res) => {
   const text = String(req.query.text || '').slice(0, 1024);
   if (!text) return res.status(400).json({ error: 'text required' });
