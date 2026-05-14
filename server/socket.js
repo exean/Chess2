@@ -5,9 +5,12 @@ const { verifyToken } = require('./auth');
 const { query, dbAvailable } = require('./db');
 const { computeRatings } = require('./rating');
 const {
-  rooms, userIndex, createRoom, getRoom, deleteRoom,
+  rooms, userIndex, createRoom, createBotSeat, getRoom, deleteRoom,
   listPublicLobbies, publicRoom, clockSnapshot,
 } = require('./rooms');
+const ai = require('./ai');
+
+const VALID_DIFFICULTIES = ['easy', 'medium', 'hard'];
 
 function newSeatToken() { return crypto.randomBytes(16).toString('hex'); }
 
@@ -124,6 +127,46 @@ async function persistFinishedGame(room) {
   }
 }
 
+function scheduleBotMoveIfNeeded(io, room) {
+  if (room.status !== 'active') return;
+  const seat = room.chess.turn === 'w' ? room.white : room.black;
+  if (!seat || !seat.bot) return;
+  // Defer to next tick so the previous emit/socket event finishes first.
+  setImmediate(() => {
+    if (room.status !== 'active') return;
+    const stillBot = (room.chess.turn === 'w' ? room.white : room.black);
+    if (!stillBot || !stillBot.bot) return;
+    let aiPick;
+    try {
+      aiPick = ai.chooseMove(room.chess, stillBot.bot.difficulty);
+    } catch (err) {
+      console.error('Bot crashed:', err.message);
+      return;
+    }
+    if (!aiPick) return;
+    const result = room.chess.move(aiPick);
+    if (!result) return;
+    room.moveList.push(result);
+    applyClockAfterMove(room);
+    room.lastActivity = Date.now();
+    room.drawOffer = null;
+    io.to(roomChannel(room.code)).emit('game:move', {
+      move: result,
+      fen: result.fen,
+      clock: clockSnapshot(room),
+      turn: room.chess.turn,
+    });
+    if (room.chess.isGameOver()) {
+      const r = room.chess.result();
+      const t = room.chess.terminationReason();
+      return endGame(io, room, r, t);
+    }
+    // No infinite loop: only schedule the next bot move if the next side is
+    // also a bot (bot-vs-bot is unusual but safe due to the active check).
+    scheduleBotMoveIfNeeded(io, room);
+  });
+}
+
 function endGame(io, room, result, termination) {
   if (room.status === 'finished') return;
   room.status = 'finished';
@@ -179,6 +222,12 @@ function registerHandlers(io, socket) {
     const visibility = data && data.visibility === 'public' ? 'public' : 'private';
     const seat = (data && data.seat === 'b') ? 'b' : (data && data.seat === 'w') ? 'w' : 'random';
     const tc = (data && data.timeControl) || { initial: 0, increment: 0 };
+    const opponent = data && data.opponent;
+    const isBotGame = typeof opponent === 'string' && opponent.startsWith('bot-');
+    const botDifficulty = isBotGame ? opponent.slice(4) : null;
+    if (isBotGame && !VALID_DIFFICULTIES.includes(botDifficulty)) {
+      return ack && ack({ error: 'Unbekannter Schwierigkeitsgrad.' });
+    }
     let rating = null;
     if (socket.data.user && dbAvailable()) {
       try {
@@ -188,11 +237,28 @@ function registerHandlers(io, socket) {
     }
     const shape = (data && data.shape) || 'standard';
     const room = createRoom({
-      visibility, rated, timeControl: tc, shape,
+      visibility: isBotGame ? 'private' : visibility,
+      rated,
+      timeControl: tc,
+      shape,
+      botColor: isBotGame ? (seat === 'w' ? 'b' : seat === 'b' ? 'w' : (Math.random() < 0.5 ? 'b' : 'w')) : null,
       createdBy: socket.data.user ? socket.data.user.id : null,
     });
-    const chosen = seat === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : seat;
-    assignSeat(room, chosen, socket, name, rating);
+    let chosen;
+    if (isBotGame) {
+      const botColor = seat === 'w' ? 'b' : seat === 'b' ? 'w' : (Math.random() < 0.5 ? 'b' : 'w');
+      chosen = botColor === 'w' ? 'b' : 'w';
+      if (botColor === 'w') room.white = createBotSeat(botDifficulty);
+      else room.black = createBotSeat(botDifficulty);
+      assignSeat(room, chosen, socket, name, rating);
+      // Bot game starts immediately.
+      room.status = 'active';
+      room.clock.lastMoveAt = null;
+      startClock(io, room);
+    } else {
+      chosen = seat === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : seat;
+      assignSeat(room, chosen, socket, name, rating);
+    }
     socket.join(roomChannel(room.code));
     userIndex.set(socket.id, room.code);
     if (typeof ack === 'function') {
@@ -205,6 +271,8 @@ function registerHandlers(io, socket) {
       });
     }
     emitRoomState(io, room);
+    // If the bot has the first move, schedule it after sending the initial state.
+    if (isBotGame) scheduleBotMoveIfNeeded(io, room);
   });
 
   socket.on('room:join', async (data, ack) => {
@@ -311,6 +379,7 @@ function registerHandlers(io, socket) {
       return endGame(io, room, result, term);
     }
     if (typeof ack === 'function') ack({ ok: true, move });
+    scheduleBotMoveIfNeeded(io, room);
   });
 
   socket.on('game:resign', () => {
@@ -329,6 +398,15 @@ function registerHandlers(io, socket) {
     if (!seatInfo) return;
     room.drawOffer = { by: seatInfo.color };
     emitRoomState(io, room);
+    // Bot decision: accept if losing by at least ~500 cp, otherwise decline.
+    const opponent = seatInfo.color === 'w' ? room.black : room.white;
+    if (opponent && opponent.bot) {
+      const ev = ai.evaluate(room.chess);
+      const fromBotPerspective = (seatInfo.color === 'w' ? -ev : ev);
+      // fromBotPerspective is positive when bot is winning, negative when losing.
+      if (fromBotPerspective <= -500) endGame(io, room, '1/2-1/2', 'draw_agreement');
+      else { room.drawOffer = null; emitRoomState(io, room); }
+    }
   });
 
   socket.on('game:draw_accept', () => {
@@ -351,8 +429,12 @@ function registerHandlers(io, socket) {
     if (!room || room.status !== 'finished') return;
     const seatInfo = seatBySocket(room, socket.id);
     if (!seatInfo) return;
+    const opponent = seatInfo.color === 'w' ? room.black : room.white;
+    if (opponent && opponent.bot) {
+      // Bot opponent: rematch is immediate.
+      return restartRoom(io, room);
+    }
     if (room.rematchOffer && room.rematchOffer.by !== seatInfo.color) {
-      // Both accepted -> start fresh game with swapped colors
       restartRoom(io, room);
     } else {
       room.rematchOffer = { by: seatInfo.color };
@@ -485,12 +567,13 @@ function restartRoom(io, room) {
   room.clock.whiteMs = room.timeControl.initial * 1000;
   room.clock.blackMs = room.timeControl.initial * 1000;
   room.clock.lastMoveAt = null;
-  // Swap colors
+  // Swap colors (bot seat carries through unchanged)
   room.white = oldBlack;
   room.black = oldWhite;
   startClock(io, room);
   emitRoomState(io, room);
   io.to(roomChannel(room.code)).emit('game:restart', publicRoom(room));
+  scheduleBotMoveIfNeeded(io, room);
 }
 
 module.exports = { registerHandlers };

@@ -36,11 +36,12 @@
     <section class="card">
       <h2>Neuen Raum erstellen</h2>
       <div class="row">
-        <label>Brettform
-          <select id="shape">
-            <option value="standard" selected>Standard 8x8</option>
-            <option value="octagon">Achteck 10x10</option>
-            <option value="cross">Kreuz 12x12</option>
+        <label>Gegner
+          <select id="opponent">
+            <option value="human" selected>Andere Person</option>
+            <option value="bot-easy">Computer (leicht)</option>
+            <option value="bot-medium">Computer (mittel)</option>
+            <option value="bot-hard">Computer (schwer)</option>
           </select>
         </label>
         <label>Farbe
@@ -48,6 +49,15 @@
             <option value="random" selected>Zufällig</option>
             <option value="w">Weiß</option>
             <option value="b">Schwarz</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label>Brettform
+          <select id="shape">
+            <option value="standard" selected>Standard 8x8</option>
+            <option value="octagon">Achteck 10x10</option>
+            <option value="cross">Kreuz 12x12</option>
           </select>
         </label>
       </div>

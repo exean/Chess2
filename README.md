@@ -6,6 +6,8 @@ responsives Vanilla-Frontend, eigener Regel-Engine ohne externe Bibliotheken.
 ## Features
 
 - 1v1 Partien über privaten Raumcode oder öffentliche Lobby
+- **Computergegner** mit 3 Schwierigkeitsstufen (leicht/mittel/schwer), funktioniert
+  auf allen Brettformen (eigene Minimax+Alpha-Beta-Engine, kein WASM-Stockfish-Dep)
 - **QR-Code zum Beitreten**: Im Warteraum wird ein QR-Code mit dem Beitritts-Link
   angezeigt - Gegner scannt mit dem Handy und ist sofort drin
 - Live-Übertragung aller Züge per Socket.IO

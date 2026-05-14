@@ -48,6 +48,7 @@ function publicSeat(seat) {
     userId: seat.userId || null,
     rating: seat.rating || null,
     connected: seat.connected,
+    bot: seat.bot ? { difficulty: seat.bot.difficulty } : null,
   };
 }
 
@@ -63,12 +64,26 @@ function clockSnapshot(room) {
   return { whiteMs, blackMs, running: room.status === 'active', lastMoveAt: room.clock.lastMoveAt };
 }
 
+function createBotSeat(difficulty) {
+  const labels = { easy: 'Computer (leicht)', medium: 'Computer (mittel)', hard: 'Computer (schwer)' };
+  return {
+    socketId: null,
+    userId: null,
+    name: labels[difficulty] || 'Computer',
+    rating: null,
+    connected: true,
+    seatToken: null,
+    bot: { difficulty },
+  };
+}
+
 function createRoom(opts) {
   const code = makeCode();
   const tc = opts.timeControl || { initial: 0, increment: 0 };
   const shape = VALID_SHAPES.includes(opts.shape) ? opts.shape : 'standard';
-  // Only standard 8x8 counts toward Elo - alternative shapes are unrated.
-  const rated = Boolean(opts.rated) && shape === 'standard';
+  // Only standard 8x8 counts toward Elo - alternative shapes and bot games are
+  // unrated.
+  const rated = Boolean(opts.rated) && shape === 'standard' && !opts.botColor;
   const room = {
     code,
     visibility: opts.visibility === 'public' ? 'public' : 'private',
@@ -143,6 +158,7 @@ module.exports = {
   rooms,
   userIndex,
   createRoom,
+  createBotSeat,
   getRoom,
   deleteRoom,
   listPublicLobbies,

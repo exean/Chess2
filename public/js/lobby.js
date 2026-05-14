@@ -19,6 +19,7 @@
     rated: document.getElementById('rated'),
     shape: document.getElementById('shape'),
     shapeHint: document.getElementById('shape-hint'),
+    opponent: document.getElementById('opponent'),
     authModal: document.getElementById('auth-modal'),
     authForm: document.getElementById('auth-form'),
     authTitle: document.getElementById('auth-title'),
@@ -34,11 +35,17 @@
   }
   function updateShapeHint() {
     const v = els.shape.value;
-    els.shapeHint.textContent = shapeHintText(v);
-    if (v !== 'standard') els.rated.checked = false;
-    els.rated.disabled = (v !== 'standard') || !user;
+    const isBot = (els.opponent.value || '').startsWith('bot-');
+    let hint = shapeHintText(v);
+    if (isBot) hint = (hint ? hint + ' ' : '') + 'Computer-Partien sind immer privat und unbewertet.';
+    els.shapeHint.textContent = hint;
+    if (v !== 'standard' || isBot) els.rated.checked = false;
+    els.rated.disabled = (v !== 'standard') || isBot || !user;
+    if (isBot) els.visibility.value = 'private';
+    els.visibility.disabled = isBot;
   }
   els.shape.addEventListener('change', updateShapeHint);
+  els.opponent.addEventListener('change', updateShapeHint);
 
   els.nick.value = Api.getName();
   els.nick.addEventListener('input', () => Api.setName(els.nick.value));
@@ -144,6 +151,7 @@
       rated: els.rated.checked,
       seat: els.seat.value,
       shape: els.shape.value,
+      opponent: els.opponent.value,
     }, (res) => {
       if (res.error) { alert(res.error); return; }
       Api.saveSeat(res.code, res.color, res.seatToken);
