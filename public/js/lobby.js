@@ -47,19 +47,20 @@
     els.rated.disabled = (v !== 'standard') || isBot || !user;
     if (isBot) els.visibility.value = 'private';
     els.visibility.disabled = isBot;
-    els.customSize.classList.toggle('hidden', v !== 'custom');
+    if (els.customSize) els.customSize.classList.toggle('hidden', v !== 'custom');
   }
   els.shape.addEventListener('change', updateShapeHint);
   els.opponent.addEventListener('change', updateShapeHint);
 
   function clampCustomDim(input, min, max) {
+    if (!input) return;
     const n = parseInt(input.value, 10);
     if (!Number.isFinite(n)) input.value = String(min);
     else if (n < min) input.value = String(min);
     else if (n > max) input.value = String(max);
   }
-  els.customW.addEventListener('change', () => clampCustomDim(els.customW, 8, 26));
-  els.customH.addEventListener('change', () => clampCustomDim(els.customH, 4, 20));
+  if (els.customW) els.customW.addEventListener('change', () => clampCustomDim(els.customW, 8, 26));
+  if (els.customH) els.customH.addEventListener('change', () => clampCustomDim(els.customH, 4, 20));
 
   els.nick.value = Api.getName();
   els.nick.addEventListener('input', () => Api.setName(els.nick.value));
@@ -151,35 +152,49 @@
   }
 
   els.create.addEventListener('click', () => {
-    const name = (els.nick.value || '').trim();
-    if (!name && !user) {
-      alert('Bitte zuerst einen Nicknamen eingeben.');
-      els.nick.focus();
-      return;
-    }
-    Api.setName(name);
-    const payload = {
-      name: name,
-      visibility: els.visibility.value,
-      timeControl: timeControl(),
-      rated: els.rated.checked,
-      seat: els.seat.value,
-      shape: els.shape.value,
-      opponent: els.opponent.value,
-    };
-    if (els.shape.value === 'custom') {
-      clampCustomDim(els.customW, 8, 26);
-      clampCustomDim(els.customH, 4, 20);
-      payload.customSize = {
-        width: parseInt(els.customW.value, 10),
-        height: parseInt(els.customH.value, 10),
+    try {
+      const name = (els.nick.value || '').trim();
+      if (!name && !user) {
+        alert('Bitte zuerst einen Nicknamen eingeben.');
+        els.nick.focus();
+        return;
+      }
+      Api.setName(name);
+      const payload = {
+        name: name,
+        visibility: els.visibility.value,
+        timeControl: timeControl(),
+        rated: els.rated.checked,
+        seat: els.seat.value,
+        shape: els.shape.value,
+        opponent: els.opponent.value,
       };
+      if (els.shape.value === 'custom') {
+        if (!els.customW || !els.customH) {
+          alert('Custom-Brett: Eingabefelder fehlen. Bitte Seite mit Strg+Umschalt+R neu laden.');
+          return;
+        }
+        clampCustomDim(els.customW, 8, 26);
+        clampCustomDim(els.customH, 4, 20);
+        const w = parseInt(els.customW.value, 10);
+        const h = parseInt(els.customH.value, 10);
+        if (!Number.isFinite(w) || !Number.isFinite(h)) {
+          alert('Bitte gültige Zahlen für Spalten/Reihen eingeben.');
+          return;
+        }
+        payload.customSize = { width: w, height: h };
+      }
+      socket.emit('room:create', payload, (res) => {
+        if (!res) { alert('Keine Antwort vom Server.'); return; }
+        if (res.error) { alert(res.error); return; }
+        if (!res.code) { alert('Server hat keinen Raum-Code zurückgegeben.'); return; }
+        Api.saveSeat(res.code, res.color, res.seatToken);
+        location.href = '/game.html?code=' + encodeURIComponent(res.code);
+      });
+    } catch (err) {
+      console.error('Create-Klick fehlgeschlagen:', err);
+      alert('Fehler beim Erstellen: ' + (err && err.message ? err.message : err));
     }
-    socket.emit('room:create', payload, (res) => {
-      if (res.error) { alert(res.error); return; }
-      Api.saveSeat(res.code, res.color, res.seatToken);
-      location.href = '/game.html?code=' + encodeURIComponent(res.code);
-    });
   });
 
   els.join.addEventListener('click', () => {
