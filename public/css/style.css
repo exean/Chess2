@@ -178,8 +178,8 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
   --cols: 8;
   --rows: 8;
   display: grid;
-  grid-template-columns: repeat(var(--cols), 1fr);
-  grid-template-rows: repeat(var(--rows), 1fr);
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
   aspect-ratio: var(--cols) / var(--rows);
   width: 100%;
   max-width: min(100vw, 90vh);
@@ -198,11 +198,15 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(28px, 8.5vmin, 60px);
+  /* Scale glyph to the actual cell size: ~85vmin of viewport divided by cols.
+     Falls back to a reasonable range if the viewport is tiny or huge. */
+  font-size: clamp(16px, calc(85vmin / var(--cols)), 64px);
   line-height: 1;
   cursor: pointer;
   user-select: none;
   touch-action: manipulation;
+  min-width: 0;
+  min-height: 0;
 }
 .sq.light { background: var(--light-sq); }
 .sq.dark { background: var(--dark-sq); }

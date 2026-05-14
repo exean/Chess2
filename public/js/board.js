@@ -38,8 +38,8 @@
       const h = this.engine.shape.height;
       this.el.style.setProperty('--cols', w);
       this.el.style.setProperty('--rows', h);
-      this.el.style.gridTemplateColumns = `repeat(${w}, 1fr)`;
-      this.el.style.gridTemplateRows = `repeat(${h}, 1fr)`;
+      this.el.style.gridTemplateColumns = `repeat(${w}, minmax(0, 1fr))`;
+      this.el.style.gridTemplateRows = `repeat(${h}, minmax(0, 1fr))`;
       this.el.innerHTML = '';
       const total = w * h;
       for (let i = 0; i < total; i++) {
