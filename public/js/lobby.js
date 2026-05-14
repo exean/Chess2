@@ -210,6 +210,18 @@
   socket.on('connect', () => { auth(); refreshPublic(); });
   socket.on('lobby:list', (data) => renderPublic(data.rooms || []));
 
+  // PWA shortcut: /?action=create -> trigger room creation as soon as a
+  // nickname is available.
+  if (new URLSearchParams(location.search).get('action') === 'create') {
+    const trigger = () => {
+      const name = (els.nick.value || '').trim();
+      if (name || user) els.create.click();
+      else els.nick.focus();
+    };
+    if (document.readyState === 'complete') trigger();
+    else window.addEventListener('load', trigger);
+  }
+
   loadMe();
   loadLeaderboard();
 })();

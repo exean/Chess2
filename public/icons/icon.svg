@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Chess2">
+  <rect width="512" height="512" rx="96" fill="#1a1d23"/>
+  <g transform="translate(256 280)" fill="none" stroke="#6cb0ff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Base -->
+    <path d="M-120 130 H120 L100 90 H-100 Z" fill="#6cb0ff"/>
+    <rect x="-110" y="60" width="220" height="30" rx="6" fill="#6cb0ff"/>
+    <!-- Body -->
+    <path d="M-80 60 C -80 -20, 80 -20, 80 60 Z" fill="#6cb0ff"/>
+    <!-- Collar -->
+    <path d="M-90 -20 H90 L70 -50 H-70 Z" fill="#6cb0ff"/>
+    <!-- Cross -->
+    <rect x="-12" y="-150" width="24" height="100" rx="4" fill="#6cb0ff"/>
+    <rect x="-50" y="-115" width="100" height="24" rx="4" fill="#6cb0ff"/>
+  </g>
+</svg>

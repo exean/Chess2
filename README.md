@@ -20,6 +20,10 @@ responsives Vanilla-Frontend, eigener Regel-Engine ohne externe Bibliotheken.
 - Revanche mit getauschten Farben
 - Mobile-first, responsives Brett (CSS Grid, Unicode-Figuren, keine Asset-Pipeline)
 - Bestenliste der bewerteten Spieler
+- **Installierbar als PWA**: Manifest + Service Worker, Homescreen-Icon,
+  App-Shell-Cache (App lädt sofort und überlebt schlechtes Mobilfunknetz).
+  Auf iOS: Safari → Teilen → "Zum Home-Bildschirm"; auf Android Chrome:
+  Menü → "App installieren"
 
 ## Schnellstart lokal
 

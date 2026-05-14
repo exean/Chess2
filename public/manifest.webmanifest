@@ -1,0 +1,36 @@
+{
+  "name": "Chess2 - Online Schach",
+  "short_name": "Chess2",
+  "description": "Mehrspieler-Schach mit Live-Übertragung über WebSockets. Spiele auf jedem Gerät, mit oder ohne Account.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1a1d23",
+  "theme_color": "#1a1d23",
+  "lang": "de",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Neue Partie",
+      "short_name": "Neu",
+      "description": "Direkt eine neue Partie erstellen",
+      "url": "/?action=create",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}
