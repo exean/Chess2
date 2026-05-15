@@ -16,19 +16,19 @@
 </head>
 <body class="page-lobby">
   <header class="topbar">
-    <a href="/" class="brand">Chess2</a>
+    <a href="/" class="brand" aria-label="Chess hoch zwei - Startseite">Chess<span class="brand-mark" aria-hidden="true">2</span></a>
     <div class="topbar-spacer"></div>
     <select id="pieces-select" class="pieces-select" title="Figurenstil" aria-label="Figurenstil"></select>
     <div id="auth-area" class="auth-area">
       <button id="btn-show-login" class="btn btn-ghost">Login</button>
-      <button id="btn-show-register" class="btn btn-ghost">Account erstellen</button>
+      <button id="btn-show-register" class="btn btn-ghost">Account</button>
     </div>
   </header>
 
   <main class="lobby">
     <section class="card hero">
-      <h1>Online Schach mit Freunden</h1>
-      <p class="muted">Spiele live auf jedem Gerät. Erstelle einen Raum und teile den Code, oder tritt einer offenen Partie bei.</p>
+      <h1>Schach<em>²</em>, neu gedacht.</h1>
+      <p class="muted">Spiele live auf jedem Gerät - klassisch, gegen Computer, oder auf Brettern in Formen, die du sonst nirgends findest.</p>
       <label for="nickname">Dein Nickname</label>
       <input id="nickname" type="text" maxlength="32" placeholder="z.B. Bauer42" autocomplete="nickname" />
       <p id="logged-in-as" class="muted hidden"></p>
@@ -106,7 +106,7 @@
         </label>
       </div>
       <p class="muted shape-hint" id="shape-hint"></p>
-      <button id="btn-create" class="btn btn-primary">Raum erstellen</button>
+      <button id="btn-create" class="btn btn-hot">Raum erstellen</button>
     </section>
 
     <section class="card">

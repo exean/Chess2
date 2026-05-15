@@ -149,8 +149,9 @@
     const seat = color === 'w' ? state.white : state.black;
     const nameEl = el.querySelector('.player-name');
     const ratingEl = el.querySelector('.player-rating');
+    const isActive = !!seat && color === state.turn && state.status === 'active';
     if (seat) {
-      nameEl.textContent = seat.name + (color === state.turn && state.status === 'active' ? ' •' : '');
+      nameEl.textContent = seat.name;
       ratingEl.textContent = seat.rating ? '(' + seat.rating + ')' : '';
       el.classList.toggle('disconnected', !seat.connected);
     } else {
@@ -158,6 +159,9 @@
       ratingEl.textContent = '';
       el.classList.remove('disconnected');
     }
+    // 'active-turn' drives the magenta accent border on the player whose
+    // turn it currently is - replaces the previous ' •' suffix string.
+    el.classList.toggle('active-turn', isActive);
     paintCaptures(el, color);
   }
 
