@@ -19,7 +19,7 @@
     <a href="/" class="brand" aria-label="Chess hoch zwei - Startseite">Chess<span class="brand-mark" aria-hidden="true">2</span></a>
     <div id="room-info" class="room-info"></div>
     <select id="pieces-select" class="pieces-select" title="Figurenstil" aria-label="Figurenstil"></select>
-    <button id="btn-flip" class="btn btn-ghost" title="Brett drehen">↻</button>
+    <button id="btn-flip" class="btn btn-ghost" title="Brett drehen" aria-label="Brett drehen">↻</button>
   </header>
 
   <main class="game">
@@ -61,12 +61,12 @@
         <button id="btn-leave" class="btn btn-ghost">Verlassen</button>
       </div>
       <div class="review-bar hidden" id="review-bar">
-        <button id="btn-rv-start" class="btn btn-ghost" title="Anfang">⏮</button>
-        <button id="btn-rv-prev"  class="btn btn-ghost" title="Zurück (◀)">◀</button>
-        <span id="review-status" class="muted">0 / 0</span>
-        <button id="btn-rv-next"  class="btn btn-ghost" title="Vor (▶)">▶</button>
-        <button id="btn-rv-end"   class="btn btn-ghost" title="Ende">⏭</button>
-        <button id="btn-rv-exit"  class="btn btn-ghost" title="Review schließen">✕</button>
+        <button id="btn-rv-start" class="btn btn-ghost" title="Anfang" aria-label="Zum ersten Zug">⏮</button>
+        <button id="btn-rv-prev"  class="btn btn-ghost" title="Zurück (Pfeil links)" aria-label="Ein Zug zurück">◀</button>
+        <span id="review-status" class="muted" aria-live="polite" aria-atomic="true">0 / 0</span>
+        <button id="btn-rv-next"  class="btn btn-ghost" title="Vor (Pfeil rechts)" aria-label="Ein Zug vorwärts">▶</button>
+        <button id="btn-rv-end"   class="btn btn-ghost" title="Ende" aria-label="Zum letzten Zug">⏭</button>
+        <button id="btn-rv-exit"  class="btn btn-ghost" title="Review schließen" aria-label="Review schließen">✕</button>
       </div>
       <div class="voice-bar" id="voice-bar">
         <button id="btn-voice" class="btn btn-ghost" title="Sprachchat ein-/ausschalten" disabled>🎙️ Stimme</button>
@@ -78,17 +78,17 @@
         <button id="btn-chessnut-flip" class="btn btn-ghost hidden" title="Brett-Orientierung umkehren">↻</button>
         <span id="chessnut-status" class="voice-status muted"></span>
       </div>
-      <p id="status-line" class="status muted"></p>
+      <p id="status-line" class="status muted" role="status" aria-live="polite" aria-atomic="true"></p>
     </section>
 
     <aside class="side-panel">
-      <div class="moves card">
-        <h3>Züge</h3>
-        <ol id="move-list" class="move-list"></ol>
+      <div class="moves card" role="region" aria-labelledby="moves-heading">
+        <h3 id="moves-heading">Züge</h3>
+        <ol id="move-list" class="move-list" aria-label="Zugliste"></ol>
       </div>
-      <div class="chat card">
-        <h3>Chat</h3>
-        <div id="chat-log" class="chat-log"></div>
+      <div class="chat card" role="region" aria-labelledby="chat-heading">
+        <h3 id="chat-heading">Chat</h3>
+        <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-atomic="false"></div>
         <form id="chat-form" class="chat-form">
           <input id="chat-input" type="text" maxlength="500" placeholder="Nachricht..." autocomplete="off" />
           <button class="btn btn-primary" type="submit">Senden</button>
@@ -97,9 +97,9 @@
     </aside>
   </main>
 
-  <div id="name-modal" class="modal hidden" aria-hidden="true">
+  <div id="name-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="name-modal-title">
     <div class="modal-content">
-      <h2>Wie heißt du?</h2>
+      <h2 id="name-modal-title">Wie heißt du?</h2>
       <p class="muted">Damit dein Gegner weiß, wer am Zug ist.</p>
       <form id="name-form">
         <label>Nickname
@@ -110,19 +110,19 @@
     </div>
   </div>
 
-  <div id="promo-modal" class="modal hidden" aria-hidden="true">
+  <div id="promo-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="promo-title">
     <div class="modal-content small">
-      <h3>Bauernumwandlung</h3>
-      <div class="promo-choices">
-        <button class="promo-btn" data-promo="q"></button>
-        <button class="promo-btn" data-promo="r"></button>
-        <button class="promo-btn" data-promo="b"></button>
-        <button class="promo-btn" data-promo="n"></button>
+      <h3 id="promo-title">Bauernumwandlung</h3>
+      <div class="promo-choices" role="group" aria-labelledby="promo-title">
+        <button class="promo-btn" data-promo="q" aria-label="Dame"></button>
+        <button class="promo-btn" data-promo="r" aria-label="Turm"></button>
+        <button class="promo-btn" data-promo="b" aria-label="Läufer"></button>
+        <button class="promo-btn" data-promo="n" aria-label="Springer"></button>
       </div>
     </div>
   </div>
 
-  <div id="end-modal" class="modal hidden" aria-hidden="true">
+  <div id="end-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="end-title">
     <div class="modal-content">
       <h2 id="end-title">Partie beendet</h2>
       <p id="end-detail"></p>

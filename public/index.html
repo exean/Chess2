@@ -129,9 +129,9 @@
     </section>
   </main>
 
-  <div id="auth-modal" class="modal hidden" aria-hidden="true">
+  <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="auth-title">
     <div class="modal-content">
-      <button class="modal-close" data-close>×</button>
+      <button class="modal-close" data-close aria-label="Schließen">×</button>
       <h2 id="auth-title">Login</h2>
       <form id="auth-form">
         <label>Username
@@ -140,7 +140,7 @@
         <label>Passwort
           <input type="password" name="password" minlength="6" required autocomplete="current-password" />
         </label>
-        <p id="auth-error" class="error hidden"></p>
+        <p id="auth-error" class="error hidden" role="alert" aria-live="assertive"></p>
         <button type="submit" class="btn btn-primary">OK</button>
       </form>
     </div>

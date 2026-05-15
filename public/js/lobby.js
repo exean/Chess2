@@ -116,7 +116,7 @@
     els.authTitle.textContent = which === 'login' ? 'Login' : 'Account erstellen';
     els.authError.classList.add('hidden');
     els.authForm.reset();
-    els.authModal.classList.remove('hidden');
+    Api.openModal(els.authModal);
     els.authForm.querySelector('input[name=username]').focus();
   }
 
@@ -124,7 +124,7 @@
   els.showRegister.addEventListener('click', () => openAuth('register'));
   els.authModal.addEventListener('click', (e) => {
     if (e.target === els.authModal || e.target.dataset.close !== undefined) {
-      els.authModal.classList.add('hidden');
+      Api.closeModal(els.authModal);
     }
   });
 
@@ -136,7 +136,7 @@
       const res = await Api.request(path, { method: 'POST', body: data });
       Api.setToken(res.token);
       user = res.user;
-      els.authModal.classList.add('hidden');
+      Api.closeModal(els.authModal);
       renderAuth();
       auth();
       loadLeaderboard();

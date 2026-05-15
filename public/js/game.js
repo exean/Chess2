@@ -74,7 +74,7 @@
     },
     onPromotion: (from, to, finalize) => {
       promoCallback = finalize;
-      els.promoModal.classList.remove('hidden');
+      Api.openModal(els.promoModal);
     },
   });
 
@@ -95,7 +95,7 @@
 
   els.promoModal.querySelectorAll('.promo-btn').forEach((b) => {
     b.addEventListener('click', () => {
-      els.promoModal.classList.add('hidden');
+      Api.closeModal(els.promoModal);
       const fn = promoCallback;
       promoCallback = null;
       if (fn) fn(b.dataset.promo);
@@ -233,27 +233,50 @@
     if (!state) return;
     els.moveList.innerHTML = '';
     const moves = state.moves || [];
+    const finished = state.status === 'finished';
     for (let i = 0; i < moves.length; i += 2) {
+      const moveNum = i / 2 + 1;
       const num = document.createElement('li');
       num.className = 'num';
-      num.textContent = (i / 2 + 1) + '.';
+      num.textContent = moveNum + '.';
+      num.setAttribute('aria-hidden', 'true');
       const w = document.createElement('li');
       w.className = 'ply';
       w.textContent = moves[i].san;
       w.dataset.ply = String(i + 1);
+      w.setAttribute('role', 'button');
+      w.setAttribute('aria-label', moveNum + '. ' + moves[i].san + (moves[i].color === 'w' ? ' (Weiß)' : ' (Schwarz)'));
+      if (finished) {
+        w.setAttribute('tabindex', '0');
+        w.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onMoveListClick(i + 1); } });
+      }
       w.addEventListener('click', () => onMoveListClick(i + 1));
       const b = document.createElement('li');
       b.className = 'ply';
       if (moves[i + 1]) {
         b.textContent = moves[i + 1].san;
         b.dataset.ply = String(i + 2);
+        b.setAttribute('role', 'button');
+        b.setAttribute('aria-label', moveNum + '... ' + moves[i + 1].san + ' (Schwarz)');
+        if (finished) {
+          b.setAttribute('tabindex', '0');
+          b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onMoveListClick(i + 2); } });
+        }
         b.addEventListener('click', () => onMoveListClick(i + 2));
+      } else {
+        b.setAttribute('aria-hidden', 'true');
       }
       if (i + 2 >= moves.length && !reviewMode) {
         (moves[i + 1] ? b : w).classList.add('last');
       }
-      if (reviewMode && reviewPly > 0 && reviewPly === i + 1) w.classList.add('current');
-      if (reviewMode && moves[i + 1] && reviewPly === i + 2) b.classList.add('current');
+      if (reviewMode && reviewPly > 0 && reviewPly === i + 1) {
+        w.classList.add('current');
+        w.setAttribute('aria-current', 'step');
+      }
+      if (reviewMode && moves[i + 1] && reviewPly === i + 2) {
+        b.classList.add('current');
+        b.setAttribute('aria-current', 'step');
+      }
       els.moveList.appendChild(num);
       els.moveList.appendChild(w);
       els.moveList.appendChild(b);
@@ -377,14 +400,14 @@
   }
 
   function promptForName(done) {
-    els.nameModal.classList.remove('hidden');
+    Api.openModal(els.nameModal);
     const handler = (e) => {
       e.preventDefault();
       const data = new FormData(els.nameForm);
       const nick = String(data.get('nickname') || '').trim().slice(0, 32);
       if (!nick) return;
       Api.setName(nick);
-      els.nameModal.classList.add('hidden');
+      Api.closeModal(els.nameModal);
       els.nameForm.removeEventListener('submit', handler);
       done();
     };
@@ -448,7 +471,7 @@
   els.btnRematch.addEventListener('click', () => socket.emit('game:rematch_offer'));
   els.endRematch.addEventListener('click', () => {
     socket.emit('game:rematch_offer');
-    els.endModal.classList.add('hidden');
+    Api.closeModal(els.endModal);
   });
   els.endLeave.addEventListener('click', () => {
     socket.emit('room:leave');
@@ -538,7 +561,7 @@
 
   els.btnReview.addEventListener('click', enterReview);
   els.endReview.addEventListener('click', () => {
-    els.endModal.classList.add('hidden');
+    Api.closeModal(els.endModal);
     enterReview();
   });
   els.btnRvStart.addEventListener('click', () => jumpTo(0));
@@ -604,7 +627,7 @@
   socket.on('game:restart', (s) => {
     Api.saveSeat(code, myColor === 'w' ? 'b' : 'w', mySeatToken);
     myColor = myColor === 'w' ? 'b' : 'w';
-    els.endModal.classList.add('hidden');
+    Api.closeModal(els.endModal);
     refreshFromState(s);
   });
   socket.on('chat:message', (msg) => appendChat(msg));
@@ -627,7 +650,7 @@
     els.endTitle.textContent = outcome;
     els.endDetail.textContent = labels[data.termination] || data.termination || '';
     els.endPgn.textContent = data.pgn || '';
-    els.endModal.classList.remove('hidden');
+    Api.openModal(els.endModal);
   }
 
   // ---- Voice chat ---------------------------------------------------------

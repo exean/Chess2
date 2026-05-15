@@ -236,6 +236,9 @@
 
     _playMoveAnimation(move, before) {
       if (!move || !before || !before.size) return;
+      // Honour user's motion-sensitivity preference: skip the slide entirely
+      // so the piece simply appears at its destination square.
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       // Determine which source squares animate to which destinations.
       const anims = [{ fromSq: move.from, toSq: move.to }];
       if (move.flags === 'k' || move.flags === 'q') {
