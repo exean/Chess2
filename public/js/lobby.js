@@ -211,7 +211,7 @@
 
   function renderPublic(rooms) {
     if (!rooms.length) {
-      els.publicList.innerHTML = '<li class="muted">Keine offenen Partien.</li>';
+      els.publicList.innerHTML = '<li class="muted">Niemand wartet gerade. Erstelle einen Raum - der nächste, der die Lobby öffnet, sieht ihn hier.</li>';
       return;
     }
     els.publicList.innerHTML = '';
@@ -265,7 +265,7 @@
     try {
       const res = await Api.request('/api/auth/leaderboard');
       if (!res.entries.length) {
-        els.leaderboard.innerHTML = '<li class="muted">Noch keine bewerteten Partien.</li>';
+        els.leaderboard.innerHTML = '<li class="muted">Die Bestenliste beginnt mit der ersten bewerteten Standard-Partie. Log dich ein und leg los.</li>';
         return;
       }
       els.leaderboard.innerHTML = '';

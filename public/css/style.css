@@ -754,6 +754,50 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); ou
   border: 0;
 }
 
+/* Delight: confetti shower for wins. Pure CSS particles, no library.
+   Spawned on demand by JS as 30-60 spans inside .confetti, then removed
+   after the animation. */
+.confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 200;
+  overflow: hidden;
+  contain: strict;
+}
+.confetti span {
+  position: absolute;
+  top: -8%;
+  width: 10px;
+  height: 16px;
+  border-radius: 2px;
+  animation: confettiFall var(--d, 2.4s) cubic-bezier(.4,0,.4,1) var(--delay, 0s) forwards;
+  will-change: transform, opacity;
+}
+@keyframes confettiFall {
+  0%   { transform: translate3d(0, -10vh, 0) rotate(0); opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translate3d(var(--drift, 0px), 110vh, 0) rotate(var(--spin, 540deg)); opacity: 0; }
+}
+
+/* Delight: a brief radial flash on the destination square after a pawn
+   promotes. The :before sits ABOVE the piece for the duration of the
+   animation, then disappears. */
+.sq.just-promoted::after {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklch, var(--hot) 70%, transparent) 0%, transparent 65%);
+  animation: promotionFlash .85s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  pointer-events: none;
+  z-index: 4;
+}
+@keyframes promotionFlash {
+  0%   { transform: scale(.3); opacity: 1; }
+  100% { transform: scale(2);  opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -762,4 +806,5 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); ou
     scroll-behavior: auto !important;
   }
   .player-clock.low { animation: none !important; }
+  .confetti { display: none !important; }
 }

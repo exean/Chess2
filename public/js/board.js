@@ -287,6 +287,17 @@
         // Safety: clear in case transitionend never fires.
         setTimeout(cleanup, 400);
       }
+
+      // Promotion: a brief radial flash on the destination square. Earned
+      // delight - happens rarely and marks a real moment in the game.
+      if (move.promotion) {
+        const [tf, tr] = toFR(move.to);
+        const sqEl = this.el.children[this._indexFor(tf, tr)];
+        if (sqEl) {
+          sqEl.classList.add('just-promoted');
+          setTimeout(() => sqEl.classList.remove('just-promoted'), 900);
+        }
+      }
     }
   }
 

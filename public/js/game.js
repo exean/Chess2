@@ -151,7 +151,10 @@
     const ratingEl = el.querySelector('.player-rating');
     const isActive = !!seat && color === state.turn && state.status === 'active';
     if (seat) {
-      nameEl.textContent = seat.name;
+      // Tiny avatar prefix for bot seats so it's visually clear without
+      // reading the suffix. 🤖 picks up the player-name colour automatically.
+      const namePrefix = seat.bot ? '🤖 ' : '';
+      nameEl.textContent = namePrefix + seat.name;
       ratingEl.textContent = seat.rating ? '(' + seat.rating + ')' : '';
       el.classList.toggle('disconnected', !seat.connected);
     } else {
@@ -644,13 +647,53 @@
       threefold_repetition: 'Stellungswiederholung',
       fifty_move_rule: '50-Züge-Regel',
     };
+    // Personalised outcome line - "Du gewinnst" lands warmer than
+    // "Weiß gewinnt" once you've got your own colour.
     let outcome = 'Remis';
-    if (data.result === '1-0') outcome = 'Weiß gewinnt';
+    const iWon = (data.result === '1-0' && myColor === 'w')
+              || (data.result === '0-1' && myColor === 'b');
+    const iLost = (data.result === '0-1' && myColor === 'w')
+               || (data.result === '1-0' && myColor === 'b');
+    if (iWon)       outcome = 'Du gewinnst!';
+    else if (iLost) outcome = data.termination === 'checkmate' ? 'Schachmatt.' : 'Du verlierst.';
+    else if (data.result === '1-0') outcome = 'Weiß gewinnt';
     else if (data.result === '0-1') outcome = 'Schwarz gewinnt';
     els.endTitle.textContent = outcome;
     els.endDetail.textContent = labels[data.termination] || data.termination || '';
     els.endPgn.textContent = data.pgn || '';
     Api.openModal(els.endModal);
+    if (iWon) celebrate();
+  }
+
+  /* Confetti shower spawned as DOM children; cleans itself up after
+   * the longest particle finishes. No-op if the user prefers reduced
+   * motion (the .confetti class is display:none in that media query
+   * but we also skip allocating the elements). */
+  function celebrate() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'confetti';
+    wrap.setAttribute('aria-hidden', 'true');
+    const colors = [
+      'oklch(74% 0.13 195)',  // teal accent
+      'oklch(70% 0.20 350)',  // magenta hot
+      'oklch(75% 0.15 160)',  // good green
+      'oklch(75% 0.16  50)',  // warm warn
+      'oklch(85% 0.12  80)',  // cream
+    ];
+    const count = 60;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('span');
+      p.style.left = (Math.random() * 100) + '%';
+      p.style.background = colors[Math.floor(Math.random() * colors.length)];
+      p.style.setProperty('--d',     (1.6 + Math.random() * 1.4).toFixed(2) + 's');
+      p.style.setProperty('--delay', (Math.random() * 0.4).toFixed(2) + 's');
+      p.style.setProperty('--drift', ((Math.random() - 0.5) * 240).toFixed(0) + 'px');
+      p.style.setProperty('--spin',  (360 + Math.random() * 720).toFixed(0) + 'deg');
+      wrap.appendChild(p);
+    }
+    document.body.appendChild(wrap);
+    setTimeout(() => wrap.remove(), 3500);
   }
 
   // ---- Voice chat ---------------------------------------------------------
