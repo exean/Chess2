@@ -60,6 +60,11 @@
         <button id="btn-mute" class="btn btn-ghost hidden" title="Mikrofon stumm schalten">🔇 Stumm</button>
         <span id="voice-status" class="voice-status muted"></span>
       </div>
+      <div class="voice-bar hidden" id="chessnut-bar">
+        <button id="btn-chessnut" class="btn btn-ghost" title="Chessnut Brett per Bluetooth verbinden">♟ Chessnut</button>
+        <button id="btn-chessnut-flip" class="btn btn-ghost hidden" title="Brett-Orientierung umkehren">↻</button>
+        <span id="chessnut-status" class="voice-status muted"></span>
+      </div>
       <p id="status-line" class="status muted"></p>
     </section>
 
@@ -126,6 +131,7 @@
   <script src="/js/topbar.js"></script>
   <script src="/js/board.js"></script>
   <script src="/js/voice.js"></script>
+  <script src="/js/chessnut.js"></script>
   <script src="/js/game.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

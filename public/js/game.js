@@ -39,6 +39,10 @@
     btnVoice: document.getElementById('btn-voice'),
     btnMute: document.getElementById('btn-mute'),
     voiceStatus: document.getElementById('voice-status'),
+    chessnutBar: document.getElementById('chessnut-bar'),
+    btnChessnut: document.getElementById('btn-chessnut'),
+    btnChessnutFlip: document.getElementById('btn-chessnut-flip'),
+    chessnutStatus: document.getElementById('chessnut-status'),
   };
 
   let myColor = null; // 'w' | 'b' | 'spectator'
@@ -528,10 +532,139 @@
     renderVoice();
   };
 
+  // ---- Chessnut Bluetooth board -----------------------------------------
+  let chessnut = null;
+  function setupChessnut() {
+    if (chessnut) return;
+    if (!window.Chess2Chessnut) return;
+    if (!window.Chess2Chessnut.ChessnutBoard.isSupported()) {
+      // Hide entire bar if browser doesn't have Web Bluetooth.
+      els.chessnutBar.classList.add('hidden');
+      return;
+    }
+    chessnut = new window.Chess2Chessnut.ChessnutBoard();
+    chessnut.onConnect = (name) => {
+      setChessnutStatus('Verbunden mit ' + name + '. Stelle die Startaufstellung auf.');
+      renderChessnut();
+      // Show legal source squares as LEDs while it's my turn.
+      updateChessnutLeds();
+    };
+    chessnut.onDisconnect = () => {
+      setChessnutStatus('Brett getrennt.');
+      renderChessnut();
+    };
+    chessnut.onBoardChange = (physical) => handleBoardChange(physical);
+    renderChessnut();
+  }
+  function setChessnutStatus(msg) { els.chessnutStatus.textContent = msg || ''; }
+  function renderChessnut() {
+    // Bar is only useful on standard 8x8 boards.
+    const isStandard = state && state.shape === 'standard';
+    els.chessnutBar.classList.toggle('hidden', !isStandard || !chessnut);
+    if (!chessnut) return;
+    els.btnChessnut.textContent = chessnut.connected ? '♟ Trennen' : '♟ Chessnut verbinden';
+    els.btnChessnutFlip.classList.toggle('hidden', !chessnut.connected);
+  }
+
+  let lastBoardSnapshot = null;
+  function handleBoardChange(physical) {
+    if (!state || state.status !== 'active') return;
+    if (state.shape !== 'standard') return;
+    lastBoardSnapshot = physical;
+    const result = window.Chess2Chessnut.detectMove(physical, board.engine);
+    if (result.status === 'in-sync') {
+      setChessnutStatus('Brett synchron.');
+      return;
+    }
+    if (result.status === 'in-progress') {
+      setChessnutStatus('Figur in der Hand…');
+      return;
+    }
+    if (result.status === 'invalid') {
+      setChessnutStatus('Stellung weicht ab. Bitte den letzten Zug auf dem Brett vollziehen.');
+      // Light the squares the engine expects to be empty/occupied differently.
+      flashSyncHint();
+      return;
+    }
+    // result.status === 'move' - submit if it's our turn
+    const seatColor = myColor === 'w' || myColor === 'b' ? myColor : null;
+    if (!seatColor || seatColor !== state.turn) {
+      setChessnutStatus('Dein Gegner ist am Zug.');
+      return;
+    }
+    setChessnutStatus('Zug erkannt: ' + result.from + '→' + result.to + (result.promotion ? '=' + result.promotion.toUpperCase() : ''));
+    socket.emit('game:move', {
+      from: result.from, to: result.to, promotion: result.promotion,
+    }, (res) => {
+      if (res && res.error) setChessnutStatus('Zug abgelehnt: ' + res.error);
+    });
+  }
+
+  function updateChessnutLeds() {
+    if (!chessnut || !chessnut.connected) return;
+    if (!state || state.status !== 'active') { chessnut.clearLeds(); return; }
+    if (state.shape !== 'standard') { chessnut.clearLeds(); return; }
+    // Highlight the opponent's last move so the human knows what to replay on
+    // the board. When it's my turn this means: the squares the opponent's
+    // piece came from and landed on.
+    const moves = state.moves || [];
+    if (moves.length === 0) { chessnut.clearLeds(); return; }
+    const last = moves[moves.length - 1];
+    chessnut.setLeds([last.from, last.to]);
+  }
+
+  function flashSyncHint() {
+    if (!chessnut || !chessnut.connected) return;
+    // Show the most recent move (opponent's) as a hint of what to put on the board.
+    const moves = state && state.moves;
+    if (moves && moves.length) {
+      const last = moves[moves.length - 1];
+      chessnut.setLeds([last.from, last.to]);
+    }
+  }
+
+  els.btnChessnut.addEventListener('click', async () => {
+    setupChessnut();
+    if (!chessnut) {
+      setChessnutStatus('Web Bluetooth wird in diesem Browser nicht unterstützt (iOS Safari: nein).');
+      return;
+    }
+    if (chessnut.connected) {
+      await chessnut.disconnect();
+      return;
+    }
+    setChessnutStatus('Suche Chessnut-Brett… (Bluetooth-Dialog beachten)');
+    try { await chessnut.connect(); }
+    catch (err) {
+      setChessnutStatus(err && err.message ? 'Fehler: ' + err.message : 'Verbindung abgebrochen.');
+    }
+  });
+  els.btnChessnutFlip.addEventListener('click', () => {
+    if (chessnut) chessnut.flipOrientation();
+  });
+
+  // Pre-create the wrapper (so the bar visibility logic kicks in early), but
+  // only construct the actual ChessnutBoard on first connect click.
+  setupChessnut();
+
+  // Hook into existing refresh cycle: update bar visibility and LEDs whenever
+  // the state changes. We layer over refreshFromState - voice already
+  // monkey-patches it, so re-grab the current binding to chain.
+  const _origRefreshFromState2 = refreshFromState;
+  refreshFromState = function (newState) {
+    _origRefreshFromState2(newState);
+    renderChessnut();
+    updateChessnutLeds();
+    // Re-evaluate physical board against new engine state (e.g., after
+    // opponent's move sync prompt should clear once you replay it).
+    if (chessnut && chessnut.connected && lastBoardSnapshot) handleBoardChange(lastBoardSnapshot);
+  };
+
   // Local tick for smooth clock display between server updates.
   clockTimer = setInterval(refreshClocks, 200);
   window.addEventListener('beforeunload', () => {
     clearInterval(clockTimer);
     if (voice) voice.disable();
+    if (chessnut && chessnut.connected) chessnut.disconnect();
   });
 })();
