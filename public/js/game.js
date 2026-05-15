@@ -460,14 +460,23 @@
   }
   function jumpTo(ply) {
     if (!reviewMode || !reviewFens.length) return;
-    reviewPly = Math.max(0, Math.min(reviewFens.length - 1, ply));
-    const fen = reviewFens[reviewPly];
-    if (fen) board.setPosition(fen);
-    if (reviewPly > 0) {
-      const m = (state.moves || [])[reviewPly - 1];
-      if (m) board.setLastMove({ from: m.from, to: m.to });
+    const newPly = Math.max(0, Math.min(reviewFens.length - 1, ply));
+    // Forward by exactly 1: replay the move with animation. Other jumps are
+    // instant (animating Home/End would just spam transforms anyway).
+    if (newPly === reviewPly + 1) {
+      const m = (state.moves || [])[reviewPly];
+      reviewPly = newPly;
+      if (m) board.applyMove(m);
     } else {
-      board.setLastMove(null);
+      reviewPly = newPly;
+      const fen = reviewFens[reviewPly];
+      if (fen) board.setPosition(fen);
+      if (reviewPly > 0) {
+        const m = (state.moves || [])[reviewPly - 1];
+        if (m) board.setLastMove({ from: m.from, to: m.to });
+      } else {
+        board.setLastMove(null);
+      }
     }
     renderReview();
     renderMoves();

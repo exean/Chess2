@@ -202,11 +202,88 @@
     }
 
     applyMove(move) {
+      // FLIP animation: record the source-square piece's pixel position
+      // BEFORE re-rendering, then translate the destination piece back to
+      // that position and let CSS transition it to its natural spot.
+      const before = this._capturePiecePositions();
+
       if (move.fen) this.engine.load(move.fen);
       else this.engine.move({ from: move.from, to: move.to, promotion: move.promotion || undefined });
       this.selected = null;
       this.legalTargets = [];
-      this.setLastMove({ from: move.from, to: move.to });
+      this.lastMove = move ? { from: move.from, to: move.to } : null;
+      this.render();
+
+      this._playMoveAnimation(move, before);
+    }
+
+    _capturePiecePositions() {
+      const map = new Map();
+      const w = this.engine.shape.width;
+      const h = this.engine.shape.height;
+      for (let r = 0; r < h; r++) {
+        for (let f = 0; f < w; f++) {
+          if (!this.engine.board[r][f]) continue;
+          const sq = 'abcdefghijklmnopqrstuvwxyz'[f] + (r + 1);
+          const idx = this._indexFor(f, r);
+          const sqEl = this.el.children[idx];
+          const pieceEl = sqEl && sqEl.querySelector('.piece');
+          if (pieceEl) map.set(sq, pieceEl.getBoundingClientRect());
+        }
+      }
+      return map;
+    }
+
+    _playMoveAnimation(move, before) {
+      if (!move || !before || !before.size) return;
+      // Determine which source squares animate to which destinations.
+      const anims = [{ fromSq: move.from, toSq: move.to }];
+      if (move.flags === 'k' || move.flags === 'q') {
+        const rank = move.from.slice(1);
+        const kingDestFile = move.to.charCodeAt(0) - 97;
+        const rookFromFile = move.flags === 'k'
+          ? this.engine.shape.kingsideRookFile
+          : this.engine.shape.queensideRookFile;
+        const rookToFile = move.flags === 'k' ? kingDestFile - 1 : kingDestFile + 1;
+        const fileLetters = 'abcdefghijklmnopqrstuvwxyz';
+        anims.push({
+          fromSq: fileLetters[rookFromFile] + rank,
+          toSq:   fileLetters[rookToFile]   + rank,
+        });
+      }
+
+      const fileLetters = 'abcdefghijklmnopqrstuvwxyz';
+      const toFR = (sq) => [sq.charCodeAt(0) - 97, parseInt(sq.slice(1), 10) - 1];
+
+      for (const a of anims) {
+        const fromRect = before.get(a.fromSq);
+        if (!fromRect) continue;
+        const [tf, tr] = toFR(a.toSq);
+        const toIdx = this._indexFor(tf, tr);
+        const sqEl = this.el.children[toIdx];
+        const pieceEl = sqEl && sqEl.querySelector('.piece');
+        if (!pieceEl) continue;
+        const toRect = pieceEl.getBoundingClientRect();
+        const dx = fromRect.left - toRect.left;
+        const dy = fromRect.top  - toRect.top;
+        if (dx === 0 && dy === 0) continue;
+        pieceEl.style.transition = 'none';
+        pieceEl.style.transform = `translate(${dx}px, ${dy}px)`;
+        pieceEl.style.zIndex = '5';
+        // Force reflow, then let the transition take it back to 0.
+        void pieceEl.getBoundingClientRect();
+        pieceEl.style.transition = 'transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1)';
+        pieceEl.style.transform = '';
+        const cleanup = () => {
+          pieceEl.style.transition = '';
+          pieceEl.style.transform = '';
+          pieceEl.style.zIndex = '';
+          pieceEl.removeEventListener('transitionend', cleanup);
+        };
+        pieceEl.addEventListener('transitionend', cleanup, { once: true });
+        // Safety: clear in case transitionend never fires.
+        setTimeout(cleanup, 400);
+      }
     }
   }
 

@@ -244,7 +244,13 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
 }
 .sq.light { background: var(--light-sq); }
 .sq.dark { background: var(--dark-sq); }
-.sq .piece { color: #000; text-shadow: 0 0 1px #fff8; }
+.sq .piece {
+  color: #000;
+  text-shadow: 0 0 1px #fff8;
+  /* Hint the browser that this element will animate via transform - lets
+     it composite the piece on its own layer for smoother sliding. */
+  will-change: transform;
+}
 .sq .piece.b { color: #111; }
 .sq .piece.w { color: #fff; text-shadow: 0 0 2px #000a, 0 1px 2px #0006; }
 /* SVG / image piece sets fill the cell minus a tiny margin. */
