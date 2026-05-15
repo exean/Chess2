@@ -38,6 +38,15 @@
   --shadow:      0 10px 32px rgba(0,0,0,.4);
   --shadow-lift: 0 18px 56px rgba(0,0,0,.5);
   --safe-pad: env(safe-area-inset-bottom, 0px);
+  /* Spacing scale - use these instead of arbitrary pixel values so the
+     rhythm stays coherent and a theme tweak only changes these tokens. */
+  --space-2xs: 4px;
+  --space-xs:  8px;
+  --space-sm:  12px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-2xl: 48px;
 }
 
 * { box-sizing: border-box; }
@@ -151,12 +160,21 @@ a:hover { text-decoration: underline; }
 
 /* Lobby ---------------------------------------------------------- */
 .lobby {
-  max-width: 760px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  padding: var(--space-lg) var(--space-md);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+}
+/* Hero + create-room span both columns; the three discovery cards
+   (join, public list, leaderboard) sit in a 2-up grid on wider screens
+   so the page reads as 'identity -> primary action -> discovery'
+   instead of five identical stacked cards. */
+@media (min-width: 720px) {
+  .lobby { grid-template-columns: 1fr 1fr; gap: var(--space-md) var(--space-lg); }
+  .lobby > .card:nth-child(1),
+  .lobby > .card:nth-child(2) { grid-column: 1 / -1; }
 }
 .card {
   background: var(--bg-2);
@@ -278,19 +296,32 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); ou
   .game { grid-template-columns: minmax(0, 560px) minmax(0, 1fr); align-items: start; }
 }
 
-.board-panel { display: flex; flex-direction: column; gap: 12px; }
+.board-panel { display: flex; flex-direction: column; gap: var(--space-sm); }
+/* Player card uses a 2-row grid so name+clock stay aligned at the top
+   regardless of how many captures the player has piled up. The captures
+   row is its own band that grows naturally and is gone when empty. */
 .player-card {
   --speak-level: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas:
+    "name   rating clock"
+    "caps   mat    clock";
+  column-gap: var(--space-sm);
+  row-gap: var(--space-2xs);
   align-items: center;
-  gap: 12px;
   background: var(--bg-2);
-  padding: 10px 14px;
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-soft);
   position: relative;
   transition: box-shadow .15s linear, border-color .2s ease-out;
 }
+.player-card .player-name   { grid-area: name; min-width: 0; }
+.player-card .player-rating { grid-area: rating; }
+.player-card .player-clock  { grid-area: clock; align-self: center; }
+.player-card .captures      { grid-area: caps; min-width: 0; }
+.player-card .material      { grid-area: mat; justify-self: start; }
 /* Active player gets a magenta accent stripe - the "it's your turn" beat. */
 .player-card.active-turn {
   border-color: color-mix(in oklch, var(--hot) 70%, transparent);
