@@ -2,9 +2,16 @@
   const Api = window.Chess2Api;
   const params = new URLSearchParams(location.search);
   const code = (params.get('code') || '').toUpperCase();
-  if (!code) { location.href = '/'; return; }
+  const archiveId = parseInt(params.get('archive'), 10);
+  const isArchive = Number.isFinite(archiveId) && archiveId > 0;
+  if (!code && !isArchive) { location.href = '/'; return; }
 
-  const socket = io({ autoConnect: true });
+  // In archive mode we don't talk to the server via sockets - the game is
+  // already over. Stub the socket so existing code paths (chat, voice,
+  // chessnut, game:move) no-op silently.
+  const socket = isArchive
+    ? { on: () => {}, emit: (_ev, _data, ack) => { if (typeof ack === 'function') ack({}); }, close: () => {} }
+    : io({ autoConnect: true });
   const els = {
     board: document.getElementById('board'),
     roomInfo: document.getElementById('room-info'),
@@ -458,6 +465,7 @@
   // Button handlers
   els.btnFlip.addEventListener('click', () => board.flip());
   els.btnLeave.addEventListener('click', () => {
+    if (isArchive) { location.href = '/history.html'; return; }
     if (!confirm('Wirklich verlassen?')) return;
     socket.emit('room:leave');
     Api.clearSeat(code);
@@ -598,9 +606,61 @@
   });
 
   // Socket events
-  socket.on('connect', () => {
-    socket.emit('auth', { token: Api.getToken() }, () => joinRoom());
-  });
+  if (isArchive) {
+    // Bootstrap archive-replay mode: fetch the saved game and drop straight
+    // into the existing review machinery. No socket traffic.
+    loadArchive();
+  } else {
+    socket.on('connect', () => {
+      socket.emit('auth', { token: Api.getToken() }, () => joinRoom());
+    });
+  }
+  async function loadArchive() {
+    try {
+      const data = await Api.request('/api/games/' + archiveId);
+      myColor = data.side === 'b' ? 'b' : data.side === 'w' ? 'w' : 'spectator';
+      const archiveState = {
+        code: 'ARCHIV',
+        visibility: 'private',
+        timeControl: data.timeControl || { initial: 0, increment: 0 },
+        rated: !!data.rated,
+        shape: data.shape || 'standard',
+        shapeOpts: data.shapeOpts || null,
+        status: 'finished',
+        turn: 'w',
+        white: {
+          name: data.whiteName, userId: null, rating: null,
+          connected: true, bot: null, voiceActive: false,
+        },
+        black: {
+          name: data.blackName, userId: null, rating: null,
+          connected: true, bot: null, voiceActive: false,
+        },
+        spectators: 0,
+        fen: data.finalFen || null,
+        moves: data.moves || [],
+        clock: null,
+        drawOffer: null,
+        rematchOffer: null,
+        result: data.result,
+        termination: data.termination,
+      };
+      refreshFromState(archiveState);
+      // Hide controls that don't apply to an archived game.
+      els.btnLeave.textContent = 'Zur Übersicht';
+      els.btnResign.classList.add('hidden');
+      els.btnDraw.classList.add('hidden');
+      els.btnRematch.classList.add('hidden');
+      if (els.voiceBar) els.voiceBar.classList.add('hidden');
+      if (els.chessnutBar) els.chessnutBar.classList.add('hidden');
+      if (els.sharePanel) els.sharePanel.classList.add('hidden');
+      // Drop straight into review mode.
+      if ((data.moves || []).length) enterReview();
+    } catch (err) {
+      alert('Partie konnte nicht geladen werden: ' + (err && err.message ? err.message : err));
+      location.href = '/history.html';
+    }
+  }
   socket.on('room:state', (s) => { if (s.code === code) refreshFromState(s); });
   socket.on('game:move', (data) => {
     if (state && data.move) {

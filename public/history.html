@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1d23" />
+  <title>Chess2 - Meine Partien</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="apple-touch-icon" href="/icons/icon.svg" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Chess2" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="page-history">
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="Chess hoch zwei - Startseite">Chess<span class="brand-mark" aria-hidden="true">2</span></a>
+    <div class="topbar-spacer"></div>
+    <div id="auth-area" class="auth-area"></div>
+  </header>
+
+  <main class="lobby">
+    <section class="card hero">
+      <h1>Meine Partien</h1>
+      <p class="muted">Hier landen alle gespielten Partien automatisch, wenn du eingeloggt warst. Du kannst sie nochmal durchgehen oder aus deiner Liste löschen - der Gegner behält seine Kopie unabhängig davon.</p>
+      <p id="auth-required" class="muted hidden">Du musst <a href="/">eingeloggt</a> sein, um Partien zu sehen.</p>
+    </section>
+
+    <section class="card">
+      <h3>Filter</h3>
+      <form id="filter-form">
+        <div class="row">
+          <label>Von
+            <input type="date" id="filter-from" />
+          </label>
+          <label>Bis
+            <input type="date" id="filter-to" />
+          </label>
+        </div>
+        <div class="row">
+          <label>Gegner
+            <input type="text" id="filter-opponent" maxlength="32" placeholder="Username teilweise..." />
+          </label>
+          <label>Ergebnis
+            <select id="filter-result">
+              <option value="">Alle</option>
+              <option value="win">Sieg</option>
+              <option value="loss">Niederlage</option>
+              <option value="draw">Remis</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <button type="submit" class="btn btn-primary">Filtern</button>
+          <button type="button" id="filter-reset" class="btn btn-ghost">Zurücksetzen</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h3>Partien</h3>
+      <ul id="games-list" class="list" aria-live="polite"><li class="muted">Lade...</li></ul>
+      <button id="load-more" class="btn btn-ghost hidden">Mehr laden</button>
+    </section>
+  </main>
+
+  <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="confirm-title">
+    <div class="modal-content small">
+      <h2 id="confirm-title">Partie löschen?</h2>
+      <p class="muted" id="confirm-detail">Die Partie verschwindet aus deiner Liste. Wenn dein Gegner ebenfalls eingeloggt war, behält er seine Kopie.</p>
+      <div class="row">
+        <button id="confirm-delete" class="btn btn-danger">Löschen</button>
+        <button id="confirm-cancel" class="btn btn-ghost">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/history.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloading) return;
+        reloading = true;
+        location.reload();
+      });
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

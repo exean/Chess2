@@ -279,7 +279,23 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); ou
   letter-spacing: .06em;
   color: var(--fg-dim);
 }
-.list .pill.accent { background: color-mix(in oklch, var(--accent) 25%, transparent); color: var(--accent); }
+.list .pill.accent     { background: color-mix(in oklch, var(--accent) 25%, transparent); color: var(--accent); }
+.list .pill.pill-win   { background: color-mix(in oklch, var(--good)   25%, transparent); color: var(--good); }
+.list .pill.pill-loss  { background: color-mix(in oklch, var(--danger) 25%, transparent); color: var(--danger); }
+.list .pill.pill-draw  { background: color-mix(in oklch, var(--fg-dim) 20%, transparent); color: var(--fg-dim); }
+
+/* History page rows: stacked content on left, action buttons on right. */
+.history-row { align-items: center; }
+.history-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2xs); }
+.history-line1 { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.history-opponent { font-weight: 700; font-size: 1rem; }
+.history-line2 { font-size: .8rem; }
+.history-actions { display: flex; gap: var(--space-xs); flex-shrink: 0; }
+@media (max-width: 480px) {
+  .history-row { flex-direction: column; align-items: stretch; gap: var(--space-xs); }
+  .history-actions { width: 100%; }
+  .history-actions .btn { flex: 1; }
+}
 .error { color: var(--danger); font-size: .9rem; }
 .hidden { display: none !important; }
 

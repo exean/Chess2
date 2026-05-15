@@ -9,6 +9,7 @@ const QRCode = require('qrcode');
 const { Server } = require('socket.io');
 
 const { router: authRouter, attachUser } = require('./auth');
+const { router: gamesRouter } = require('./games');
 const { dbAvailable, runMigrations } = require('./db');
 const { registerHandlers } = require('./socket');
 
@@ -20,6 +21,7 @@ app.use((req, _res, next) => {
 });
 app.use(attachUser);
 app.use('/api/auth', authRouter);
+app.use('/api/games', gamesRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, db: dbAvailable(), time: new Date().toISOString() });

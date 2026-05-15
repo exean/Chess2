@@ -62,6 +62,9 @@ function applyClockAfterMove(room) {
 async function persistFinishedGame(room) {
   if (!dbAvailable()) return;
   if (!room.white || !room.black) return;
+  // Only persist games that involve at least one logged-in account.
+  // Anonymous-vs-anonymous matches don't need to live in the DB.
+  if (!room.white.userId && !room.black.userId) return;
   try {
     const wUser = room.white.userId || null;
     const bUser = room.black.userId || null;
@@ -110,16 +113,20 @@ async function persistFinishedGame(room) {
         );
       }
     }
+    const movesJson = JSON.stringify(room.moveList || []);
+    const shapeOpts = room.shapeOpts ? JSON.stringify(room.shapeOpts) : null;
     await query(
       `INSERT INTO games
         (room_code, white_user_id, black_user_id, white_name, black_name,
-         time_initial, time_increment, rated, result, termination, pgn, final_fen,
+         time_initial, time_increment, rated, shape, shape_opts,
+         result, termination, pgn, moves_json, final_fen,
          white_rating_before, black_rating_before, white_rating_after, black_rating_after,
          finished_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
       [room.code, wUser, bUser, room.white.name, room.black.name,
        room.timeControl.initial, room.timeControl.increment, room.rated ? 1 : 0,
-       room.result, room.termination, pgn, room.chess.fen(),
+       room.shape || 'standard', shapeOpts,
+       room.result, room.termination, pgn, movesJson, room.chess.fen(),
        whiteBefore, blackBefore, whiteAfter, blackAfter]
     );
   } catch (err) {

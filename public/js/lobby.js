@@ -73,6 +73,11 @@
   function renderAuth() {
     if (user) {
       els.authArea.innerHTML = '';
+      const history = document.createElement('a');
+      history.href = '/history.html';
+      history.className = 'btn btn-ghost';
+      history.textContent = 'Meine Partien';
+      els.authArea.appendChild(history);
       const btn = document.createElement('button');
       btn.className = 'btn btn-ghost';
       btn.textContent = 'Logout (' + user.username + ')';
