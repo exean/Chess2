@@ -73,6 +73,17 @@
       pieceFiles: [2,3,4,5,6,7,8,9],
       kingFile: 6, queensideRookFile: 2, kingsideRookFile: 9,
     },
+    hole: {
+      // 10x10 board with a 2x2 hole at the dead center (files e+f, ranks 5+6).
+      // The standard 8-piece set sits centered on the full-width back ranks
+      // and pawns have to detour around the hole through diagonal captures
+      // or by funneling along the edges.
+      width: 10, height: 10,
+      mask: (f, r) => !((f === 4 || f === 5) && (r === 4 || r === 5)),
+      whiteHomeRank: 0, blackHomeRank: 9,
+      pieceFiles: [1, 2, 3, 4, 5, 6, 7, 8],
+      kingFile: 5, queensideRookFile: 1, kingsideRookFile: 8,
+    },
   };
 
   function getShape(name) {

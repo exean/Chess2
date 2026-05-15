@@ -140,6 +140,7 @@
     if (s === 'octagon') return 'Achteck';
     if (s === 'hexagon') return 'Sechseck';
     if (s === 'cross') return 'Kreuz';
+    if (s === 'hole') return 'Loch';
     if (s === 'custom') return opts ? opts.width + 'x' + opts.height : 'Custom';
     return 'Standard';
   }
