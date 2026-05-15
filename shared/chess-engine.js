@@ -33,13 +33,31 @@
       kingFile: 4, queensideRookFile: 0, kingsideRookFile: 7,
     },
     octagon: {
-      width: 10, height: 10,
-      // 10x10 with 4 single-square corners cut.
-      mask: (f, r) => !((f === 0 && r === 0) || (f === 9 && r === 0) ||
-                        (f === 0 && r === 9) || (f === 9 && r === 9)),
-      whiteHomeRank: 0, blackHomeRank: 9,
-      pieceFiles: [1,2,3,4,5,6,7,8],
-      kingFile: 5, queensideRookFile: 1, kingsideRookFile: 8,
+      // 14x14 with stepped triangular corners cut, giving an octagonal
+      // playable area with row-widths 8,10,12,14,14,14,14,14,14,14,14,12,10,8.
+      // The 8-wide top and bottom rows host the standard back ranks exactly.
+      width: 14, height: 14,
+      mask: (f, r) => {
+        if (r >= 3 && r <= 10) return true;
+        const dist = r < 3 ? 2 - r : r - 11;
+        const cut = dist + 1;
+        return f >= cut && f < 14 - cut;
+      },
+      whiteHomeRank: 0, blackHomeRank: 13,
+      pieceFiles: [3, 4, 5, 6, 7, 8, 9, 10],
+      kingFile: 7, queensideRookFile: 3, kingsideRookFile: 10,
+    },
+    hexagon: {
+      // 16x9 hexagonal-ish board: row widths 8,10,12,14,16,14,12,10,8.
+      // The middle row is 16 wide (full), top and bottom are 8 wide.
+      width: 16, height: 9,
+      mask: (f, r) => {
+        const dist = Math.abs(r - 4);
+        return f >= dist && f < 16 - dist;
+      },
+      whiteHomeRank: 0, blackHomeRank: 8,
+      pieceFiles: [4, 5, 6, 7, 8, 9, 10, 11],
+      kingFile: 8, queensideRookFile: 4, kingsideRookFile: 11,
     },
     cross: {
       width: 12, height: 12,
