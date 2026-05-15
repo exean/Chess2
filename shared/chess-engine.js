@@ -619,7 +619,10 @@
       const cleaned = san.replace(/[+#?!]/g, '');
       if (cleaned === 'O-O' || cleaned === '0-0') return legal.find((m) => m.flags === 'k') || null;
       if (cleaned === 'O-O-O' || cleaned === '0-0-0') return legal.find((m) => m.flags === 'q') || null;
-      const re = /^([NBRQK])?([a-z])?(\d+)?x?([a-z]\d+)(?:=([NBRQ]))?$/;
+      // 'x' is the capture marker, never a from-file disambiguator. Excluding
+      // it from the from-file character class prevents 'Qxf7' from being
+      // mis-parsed as piece=Q, fromFile='x', dest='f7'.
+      const re = /^([NBRQK])?([a-wy-z])?(\d+)?x?([a-z]\d+)(?:=([NBRQ]))?$/;
       const match = cleaned.match(re);
       if (!match) return null;
       const [, pieceLetter, fromFile, fromRank, dest, promo] = match;

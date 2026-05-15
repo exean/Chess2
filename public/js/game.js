@@ -43,8 +43,21 @@
     btnChessnut: document.getElementById('btn-chessnut'),
     btnChessnutFlip: document.getElementById('btn-chessnut-flip'),
     chessnutStatus: document.getElementById('chessnut-status'),
+    btnReview: document.getElementById('btn-review'),
+    reviewBar: document.getElementById('review-bar'),
+    btnRvStart: document.getElementById('btn-rv-start'),
+    btnRvPrev: document.getElementById('btn-rv-prev'),
+    btnRvNext: document.getElementById('btn-rv-next'),
+    btnRvEnd: document.getElementById('btn-rv-end'),
+    btnRvExit: document.getElementById('btn-rv-exit'),
+    reviewStatus: document.getElementById('review-status'),
+    endReview: document.getElementById('end-review'),
   };
 
+  // Review-Mode (Partie-Wiedergabe nach Spiel-Ende)
+  let reviewMode = false;
+  let reviewPly = 0;     // 0 = Anfangsstellung, N = nach N Halbzügen
+  let reviewFens = [];
   let myColor = null; // 'w' | 'b' | 'spectator'
   let mySeatToken = null;
   let state = null;
@@ -189,12 +202,20 @@
       const w = document.createElement('li');
       w.className = 'ply';
       w.textContent = moves[i].san;
+      w.dataset.ply = String(i + 1);
+      w.addEventListener('click', () => onMoveListClick(i + 1));
       const b = document.createElement('li');
       b.className = 'ply';
-      if (moves[i + 1]) b.textContent = moves[i + 1].san;
-      if (i + 2 >= moves.length) {
+      if (moves[i + 1]) {
+        b.textContent = moves[i + 1].san;
+        b.dataset.ply = String(i + 2);
+        b.addEventListener('click', () => onMoveListClick(i + 2));
+      }
+      if (i + 2 >= moves.length && !reviewMode) {
         (moves[i + 1] ? b : w).classList.add('last');
       }
+      if (reviewMode && reviewPly > 0 && reviewPly === i + 1) w.classList.add('current');
+      if (reviewMode && moves[i + 1] && reviewPly === i + 2) b.classList.add('current');
       els.moveList.appendChild(num);
       els.moveList.appendChild(w);
       els.moveList.appendChild(b);
@@ -234,18 +255,23 @@
         : state.shape;
       board.setShape(arg);
     }
-    if (state.fen) {
-      // Only replace position if engine differs (avoid wiping in-progress selection)
-      if (board.engine.fen() !== state.fen) board.setPosition(state.fen);
-    }
-    if (state.moves && state.moves.length) {
-      const last = state.moves[state.moves.length - 1];
-      board.setLastMove({ from: last.from, to: last.to });
-    } else {
-      board.setLastMove(null);
+    // If the game is active again (rematch), drop any in-progress review.
+    if (reviewMode && state.status !== 'finished') exitReview();
+    // While reviewing, keep showing the chosen ply - don't snap to the
+    // server's current position or update the 'last move' highlight.
+    if (!reviewMode) {
+      if (state.fen) {
+        if (board.engine.fen() !== state.fen) board.setPosition(state.fen);
+      }
+      if (state.moves && state.moves.length) {
+        const last = state.moves[state.moves.length - 1];
+        board.setLastMove({ from: last.from, to: last.to });
+      } else {
+        board.setLastMove(null);
+      }
     }
     board.viewColor = myColor === 'b' ? 'b' : 'w';
-    board.setInteractive(state.status === 'active' && (myColor === 'w' || myColor === 'b') && myColor === state.turn);
+    board.setInteractive(!reviewMode && state.status === 'active' && (myColor === 'w' || myColor === 'b') && myColor === state.turn);
     board.setOrientation(myColor === 'b' ? 'b' : 'w');
     refreshPromoButtons();
     lastClock = state.clock ? { whiteMs: state.clock.whiteMs, blackMs: state.clock.blackMs } : null;
@@ -263,7 +289,9 @@
     const active = state && state.status === 'active' && isPlayer;
     els.btnResign.disabled = !active;
     els.btnDraw.disabled = !active;
-    els.btnRematch.classList.toggle('hidden', !(state && state.status === 'finished' && isPlayer));
+    const finished = state && state.status === 'finished';
+    els.btnRematch.classList.toggle('hidden', !(finished && isPlayer));
+    els.btnReview.classList.toggle('hidden', !(finished && (state.moves || []).length));
   }
 
   function appendChat(msg) {
@@ -388,6 +416,97 @@
     socket.emit('room:leave');
     Api.clearSeat(code);
     location.href = '/';
+  });
+
+  // --- Review mode (Partie Schritt für Schritt durchgehen) ---------------
+  function buildReviewFens() {
+    reviewFens = [];
+    const shapeArg = state.shape === 'custom' && state.shapeOpts
+      ? { kind: 'custom', width: state.shapeOpts.width, height: state.shapeOpts.height }
+      : state.shape || 'standard';
+    try {
+      reviewFens.push(window.ChessEngine.startingFen(shapeArg));
+    } catch {
+      reviewFens.push(null);
+    }
+    for (const m of (state.moves || [])) {
+      if (m && m.fen) reviewFens.push(m.fen);
+    }
+  }
+  function enterReview() {
+    if (!state || !(state.moves || []).length) return;
+    buildReviewFens();
+    if (reviewFens.length < 2) return;
+    reviewMode = true;
+    reviewPly = reviewFens.length - 1;
+    board.setInteractive(false);
+    els.reviewBar.classList.remove('hidden');
+    jumpTo(reviewPly);
+  }
+  function exitReview() {
+    reviewMode = false;
+    els.reviewBar.classList.add('hidden');
+    if (!state) return;
+    if (state.fen) board.setPosition(state.fen);
+    const moves = state.moves || [];
+    if (moves.length) {
+      const last = moves[moves.length - 1];
+      board.setLastMove({ from: last.from, to: last.to });
+    } else {
+      board.setLastMove(null);
+    }
+    renderMoves();
+    renderStatus();
+  }
+  function jumpTo(ply) {
+    if (!reviewMode || !reviewFens.length) return;
+    reviewPly = Math.max(0, Math.min(reviewFens.length - 1, ply));
+    const fen = reviewFens[reviewPly];
+    if (fen) board.setPosition(fen);
+    if (reviewPly > 0) {
+      const m = (state.moves || [])[reviewPly - 1];
+      if (m) board.setLastMove({ from: m.from, to: m.to });
+    } else {
+      board.setLastMove(null);
+    }
+    renderReview();
+    renderMoves();
+  }
+  function renderReview() {
+    if (!reviewMode) return;
+    const total = reviewFens.length - 1;
+    els.reviewStatus.textContent = reviewPly + ' / ' + total;
+    els.btnRvStart.disabled = els.btnRvPrev.disabled = (reviewPly <= 0);
+    els.btnRvEnd.disabled = els.btnRvNext.disabled = (reviewPly >= total);
+  }
+  function onMoveListClick(targetPly) {
+    if (!reviewMode) {
+      // First click during finished-but-not-reviewing state: enter review.
+      if (!state || state.status !== 'finished') return;
+      enterReview();
+    }
+    jumpTo(targetPly);
+  }
+
+  els.btnReview.addEventListener('click', enterReview);
+  els.endReview.addEventListener('click', () => {
+    els.endModal.classList.add('hidden');
+    enterReview();
+  });
+  els.btnRvStart.addEventListener('click', () => jumpTo(0));
+  els.btnRvPrev.addEventListener('click', () => jumpTo(reviewPly - 1));
+  els.btnRvNext.addEventListener('click', () => jumpTo(reviewPly + 1));
+  els.btnRvEnd.addEventListener('click', () => jumpTo(reviewFens.length - 1));
+  els.btnRvExit.addEventListener('click', exitReview);
+
+  document.addEventListener('keydown', (e) => {
+    if (!reviewMode) return;
+    if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+    if (e.key === 'ArrowLeft')  { jumpTo(reviewPly - 1); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { jumpTo(reviewPly + 1); e.preventDefault(); }
+    else if (e.key === 'Home') { jumpTo(0); e.preventDefault(); }
+    else if (e.key === 'End')  { jumpTo(reviewFens.length - 1); e.preventDefault(); }
+    else if (e.key === 'Escape') { exitReview(); e.preventDefault(); }
   });
 
   els.chatForm.addEventListener('submit', (e) => {

@@ -53,7 +53,16 @@
         <button id="btn-resign" class="btn btn-danger" disabled>Aufgeben</button>
         <button id="btn-draw" class="btn btn-ghost" disabled>Remis anbieten</button>
         <button id="btn-rematch" class="btn btn-primary hidden">Revanche</button>
+        <button id="btn-review" class="btn btn-ghost hidden">Partie ansehen</button>
         <button id="btn-leave" class="btn btn-ghost">Verlassen</button>
+      </div>
+      <div class="review-bar hidden" id="review-bar">
+        <button id="btn-rv-start" class="btn btn-ghost" title="Anfang">⏮</button>
+        <button id="btn-rv-prev"  class="btn btn-ghost" title="Zurück (◀)">◀</button>
+        <span id="review-status" class="muted">0 / 0</span>
+        <button id="btn-rv-next"  class="btn btn-ghost" title="Vor (▶)">▶</button>
+        <button id="btn-rv-end"   class="btn btn-ghost" title="Ende">⏭</button>
+        <button id="btn-rv-exit"  class="btn btn-ghost" title="Review schließen">✕</button>
       </div>
       <div class="voice-bar" id="voice-bar">
         <button id="btn-voice" class="btn btn-ghost" title="Sprachchat ein-/ausschalten" disabled>🎙️ Stimme</button>
@@ -115,7 +124,8 @@
       <p id="end-detail"></p>
       <div class="row">
         <button id="end-rematch" class="btn btn-primary">Revanche</button>
-        <button id="end-leave" class="btn btn-ghost">Verlassen</button>
+        <button id="end-review"  class="btn btn-ghost">Partie ansehen</button>
+        <button id="end-leave"   class="btn btn-ghost">Verlassen</button>
       </div>
       <details>
         <summary>PGN</summary>
