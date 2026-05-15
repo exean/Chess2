@@ -166,6 +166,24 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
 }
 .player-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-rating { color: var(--fg-dim); font-size: .85rem; }
+.captures {
+  font-size: 1.15rem;
+  line-height: 1;
+  letter-spacing: -3px;
+  color: var(--fg);
+  opacity: 0.85;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.captures:empty { display: none; }
+.material {
+  font-size: .8rem;
+  color: var(--good);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.material:empty { display: none; }
 .player-clock {
   font-variant-numeric: tabular-nums;
   font-weight: 700;

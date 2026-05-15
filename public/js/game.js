@@ -158,6 +158,38 @@
       ratingEl.textContent = '';
       el.classList.remove('disconnected');
     }
+    paintCaptures(el, color);
+  }
+
+  const CAPTURE_GLYPHS = {
+    w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
+    b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
+  };
+  const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+  const CAP_ORDER = { q: 0, r: 1, b: 2, n: 3, p: 4 };
+
+  function paintCaptures(el, color) {
+    const captureEl = el.querySelector('.captures');
+    const materialEl = el.querySelector('.material');
+    if (!captureEl || !materialEl) return;
+    // Iterate only up to the current ply when reviewing, so the captures
+    // bar reflects the position being shown rather than the final state.
+    const moves = (state && state.moves) || [];
+    const upTo = (reviewMode ? reviewPly : moves.length);
+    const myCaps = [];
+    let myValue = 0, oppValue = 0;
+    for (let i = 0; i < upTo; i++) {
+      const m = moves[i];
+      if (!m || !m.captured) continue;
+      const val = PIECE_VALUES[m.captured] || 0;
+      if (m.color === color) { myCaps.push(m.captured); myValue += val; }
+      else oppValue += val;
+    }
+    myCaps.sort((a, b) => CAP_ORDER[a] - CAP_ORDER[b]);
+    const oppColor = color === 'w' ? 'b' : 'w';
+    captureEl.textContent = myCaps.map((t) => CAPTURE_GLYPHS[oppColor][t] || '').join('');
+    const delta = myValue - oppValue;
+    materialEl.textContent = delta > 0 ? ('+' + delta) : '';
   }
 
   function refreshClocks() {
@@ -482,6 +514,7 @@
     }
     renderReview();
     renderMoves();
+    updatePlayers();
   }
   function renderReview() {
     if (!reviewMode) return;
