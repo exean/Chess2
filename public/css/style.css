@@ -710,10 +710,35 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); ou
 }
 
 @media (max-width: 480px) {
-  .lobby { padding: 14px; gap: 14px; }
-  .card { padding: 18px; }
-  .card.hero { padding: 24px 18px 22px; }
-  .player-clock { font-size: 1.1rem; min-width: 76px; padding: 4px 8px; }
+  /* Tighten chrome so the board has room to breathe on phones. */
+  .topbar { padding: 10px 14px; gap: 10px; }
+  .brand { font-size: 1.2rem; }
+  .lobby { padding: var(--space-md) var(--space-sm); gap: var(--space-sm); }
+  .card { padding: var(--space-md); }
+  .card.hero { padding: var(--space-lg) var(--space-md); }
+  .card h1 { font-size: clamp(1.7rem, 7vw, 2.2rem); }
+  .player-card { padding: var(--space-2xs) var(--space-sm); }
+  .player-clock { font-size: 1.05rem; min-width: 72px; padding: 4px var(--space-xs); }
+  .player-name { font-size: .95rem; }
+  /* Game actions: smaller buttons but still ≥44px touch target via padding. */
+  .game .game-actions { gap: var(--space-2xs); }
+  .game-actions .btn { padding: var(--space-xs) var(--space-sm); font-size: .9rem; min-height: 44px; flex: 1 1 80px; }
+  /* Status text gets tighter on phones - still readable for the rare
+     error message but doesn't eat a whole row when idle. */
+  .voice-bar .voice-status { font-size: .72rem; line-height: 1.3; }
+  .voice-bar .btn { font-size: .85rem; padding: var(--space-xs) var(--space-sm); }
+  /* Side panel (Züge + Chat) becomes collapsible on phones via <details>. */
+  .side-panel .card { padding: var(--space-sm); }
+  .move-list { max-height: 180px; }
+  .chat-log { max-height: 180px; }
+  .review-bar { gap: var(--space-2xs); padding: var(--space-2xs); }
+  .review-bar .btn { padding: var(--space-2xs) var(--space-sm); min-width: 44px; min-height: 44px; }
+}
+
+/* Tablet and up: side-panel re-expands and gets more breathing room. */
+@media (min-width: 720px) {
+  .moves .move-list { max-height: 320px; }
+  .chat-log { max-height: 280px; }
 }
 
 /* Accessibility utilities ------------------------------------------- */
