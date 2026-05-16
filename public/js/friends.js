@@ -16,10 +16,27 @@
     confirmModal: document.getElementById('confirm-modal'),
     confirmYes: document.getElementById('confirm-yes'),
     confirmNo: document.getElementById('confirm-no'),
+    chModal: document.getElementById('challenge-modal'),
+    chFriendName: document.getElementById('challenge-friend-name'),
+    chForm: document.getElementById('challenge-form'),
+    chSeat: document.getElementById('ch-seat'),
+    chShape: document.getElementById('ch-shape'),
+    chTcInitial: document.getElementById('ch-tc-initial'),
+    chTcIncrement: document.getElementById('ch-tc-increment'),
+    chError: document.getElementById('ch-error'),
+    inModal: document.getElementById('incoming-modal'),
+    inFrom: document.getElementById('incoming-from'),
+    inDetail: document.getElementById('incoming-detail'),
+    inAccept: document.getElementById('incoming-accept'),
+    inDecline: document.getElementById('incoming-decline'),
   };
 
   let user = null;
   let pendingRemoval = null;
+  let challengeTarget = null;     // friend being challenged from this page
+  let pendingChallenge = null;    // outgoing challenge data
+  let incomingChallenge = null;   // incoming challenge data
+  const socket = io({ autoConnect: true });
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"'`]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;','`':'&#96;' }[c]));
@@ -43,7 +60,10 @@
     li.className = 'history-row';
     const info = document.createElement('div');
     info.className = 'history-left';
-    info.innerHTML = '<span class="history-opponent">' + escapeHtml(meta.username) + '</span>' +
+    const onlineDot = (typeof meta.online === 'boolean')
+      ? '<span class="online-dot ' + (meta.online ? 'on' : 'off') + '" aria-label="' + (meta.online ? 'online' : 'offline') + '"></span> '
+      : '';
+    info.innerHTML = onlineDot + '<span class="history-opponent">' + escapeHtml(meta.username) + '</span>' +
       (meta.rating ? ' <span class="pill">' + meta.rating + '</span>' : '') +
       (meta.subtitle ? '<div class="history-line2 muted">' + escapeHtml(meta.subtitle) + '</div>' : '');
     const actionsEl = document.createElement('div');
@@ -108,10 +128,19 @@
       els.friendsList.innerHTML = '';
       if (data.friends && data.friends.length) {
         for (const f of data.friends) {
-          const row = renderRow(
-            { username: f.username, rating: f.rating, subtitle: 'Freunde seit ' + formatDate(f.since) },
-            [btn('Entfernen', 'btn-ghost', () => askRemove(f))]
-          );
+          const actions = [];
+          if (f.online) {
+            actions.push(btn('Spielen', 'btn-primary', () => openChallenge(f)));
+          }
+          actions.push(btn('Entfernen', 'btn-ghost', () => askRemove(f)));
+          const meta = {
+            username: f.username,
+            rating: f.rating,
+            subtitle: 'Freunde seit ' + formatDate(f.since),
+            online: f.online,
+          };
+          const row = renderRow(meta, actions);
+          row.dataset.friendId = String(f.friend_id);
           els.friendsList.appendChild(row);
         }
       } else {
@@ -216,13 +245,103 @@
     }
   }
 
+  // ---- Challenge UI -----------------------------------------------------
+  function openChallenge(friend) {
+    challengeTarget = friend;
+    els.chFriendName.textContent = friend.username;
+    els.chError.classList.add('hidden');
+    Api.openModal(els.chModal);
+  }
+  els.chModal.addEventListener('click', (e) => {
+    if (e.target === els.chModal || e.target.dataset.close !== undefined) {
+      Api.closeModal(els.chModal);
+    }
+  });
+  els.chForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!challengeTarget) return;
+    const payload = {
+      friendId: challengeTarget.friend_id,
+      timeControl: {
+        initial: Number(els.chTcInitial.value) * 60,
+        increment: Number(els.chTcIncrement.value),
+      },
+      seat: els.chSeat.value,
+      shape: els.chShape.value,
+    };
+    els.chError.classList.add('hidden');
+    socket.emit('friend:challenge', payload, (res) => {
+      if (res && res.error) {
+        els.chError.textContent = res.error;
+        els.chError.classList.remove('hidden');
+        return;
+      }
+      pendingChallenge = res;
+      Api.closeModal(els.chModal);
+      // Wait for friend:challenge_accepted/declined. Save seat info in case
+      // accept races with us navigating.
+      Api.saveSeat(res.code, res.color, res.seatToken);
+    });
+  });
+
+  function showIncoming(data) {
+    incomingChallenge = data;
+    els.inFrom.textContent = data.from.username + (data.from.rating ? ' (' + data.from.rating + ')' : '');
+    const tc = data.timeControl && data.timeControl.initial
+      ? Math.round(data.timeControl.initial / 60) + '+' + data.timeControl.increment
+      : 'ohne Uhr';
+    const shape = ({ standard: 'Standard', octagon: 'Achteck', hexagon: 'Sechseck', cross: 'Kreuz', hole: 'Loch', custom: 'Custom' })[data.shape] || data.shape;
+    els.inDetail.textContent = shape + ' • ' + tc + ' • du als ' + (data.yourColor === 'w' ? 'Weiß' : 'Schwarz');
+    Api.openModal(els.inModal);
+  }
+  els.inAccept.addEventListener('click', () => {
+    if (!incomingChallenge) return;
+    const token = incomingChallenge.challengeToken;
+    socket.emit('friend:accept_challenge', { challengeToken: token }, (res) => {
+      if (res && res.error) { alert(res.error); incomingChallenge = null; Api.closeModal(els.inModal); return; }
+      Api.saveSeat(res.code, res.color, res.seatToken);
+      location.href = '/game.html?code=' + encodeURIComponent(res.code);
+    });
+  });
+  els.inDecline.addEventListener('click', () => {
+    if (!incomingChallenge) return;
+    socket.emit('friend:decline_challenge', { challengeToken: incomingChallenge.challengeToken });
+    incomingChallenge = null;
+    Api.closeModal(els.inModal);
+  });
+
+  // ---- Socket presence + challenge events -------------------------------
+  socket.on('friend:status', ({ userId, online }) => {
+    const row = document.querySelector('li[data-friend-id="' + userId + '"]');
+    if (!row) return;
+    // Cheap rerender: just refresh the whole list.
+    refresh();
+  });
+  socket.on('friend:incoming_challenge', showIncoming);
+  socket.on('friend:challenge_accepted', (data) => {
+    if (!pendingChallenge || pendingChallenge.challengeToken !== data.challengeToken) return;
+    location.href = '/game.html?code=' + encodeURIComponent(data.code);
+  });
+  socket.on('friend:challenge_declined', () => {
+    pendingChallenge = null;
+    alert('Dein Freund hat abgelehnt.');
+  });
+  socket.on('friend:challenge_cancelled', (data) => {
+    pendingChallenge = null;
+    alert('Einladung abgebrochen: ' + (data && data.reason ? data.reason : 'unbekannt'));
+  });
+
   async function init() {
     if (Api.getToken()) {
       try { const me = await Api.request('/api/auth/me'); user = me.user; } catch {}
     }
     renderAuth();
     if (!user) { showUnauth(); return; }
+    socket.emit('auth', { token: Api.getToken() }, () => {});
     refresh();
   }
+  socket.on('connect', () => {
+    if (user) socket.emit('auth', { token: Api.getToken() }, () => {});
+  });
   init();
 })();

@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { query, dbAvailable } = require('./db');
+const { isUserOnline } = require('./socket');
 
 const router = express.Router();
 
@@ -46,7 +47,8 @@ router.get('/', async (req, res) => {
         ORDER BY f.created_at DESC`,
       [me]
     );
-    res.json({ friends, incoming, outgoing });
+    const friendsWithStatus = friends.map((f) => ({ ...f, online: isUserOnline(f.friend_id) }));
+    res.json({ friends: friendsWithStatus, incoming, outgoing });
   } catch (err) {
     console.error('list friends failed', err);
     res.status(500).json({ error: 'Liste konnte nicht geladen werden.' });

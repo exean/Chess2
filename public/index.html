@@ -135,6 +135,17 @@
     </section>
   </main>
 
+  <div id="incoming-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="lobby-incoming-title">
+    <div class="modal-content">
+      <h2 id="lobby-incoming-title"><span id="lobby-incoming-from">…</span> fordert dich heraus</h2>
+      <p class="muted" id="lobby-incoming-detail">…</p>
+      <div class="row">
+        <button id="lobby-incoming-accept" class="btn btn-primary">Annehmen</button>
+        <button id="lobby-incoming-decline" class="btn btn-ghost">Ablehnen</button>
+      </div>
+    </div>
+  </div>
+
   <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="auth-title">
     <div class="modal-content">
       <button class="modal-close" data-close aria-label="Schließen">×</button>

@@ -202,7 +202,63 @@ function emitError(socket, message) {
   socket.emit('app:error', { message });
 }
 
+/* ----- Online presence + friend challenges ----------------------------- */
+
+// userId -> Set<socketId>: every socket the user has open. The user counts
+// as 'online' for friends as long as at least one socket is connected.
+const onlineUsers = new Map();
+// challengeToken -> { fromUserId, toUserId, roomCode, expiresAt, seatToken }
+const pendingChallenges = new Map();
+let ioInstance = null;
+
+function setUserOnline(userId, socketId) {
+  if (!userId) return false;
+  let set = onlineUsers.get(userId);
+  if (!set) { set = new Set(); onlineUsers.set(userId, set); }
+  const wasEmpty = set.size === 0;
+  set.add(socketId);
+  return wasEmpty;
+}
+function setUserOffline(userId, socketId) {
+  if (!userId) return false;
+  const set = onlineUsers.get(userId);
+  if (!set) return false;
+  set.delete(socketId);
+  if (set.size === 0) { onlineUsers.delete(userId); return true; }
+  return false;
+}
+function isUserOnline(userId) {
+  const set = onlineUsers.get(userId);
+  return !!(set && set.size > 0);
+}
+
+async function broadcastStatusToFriends(userId, online) {
+  if (!dbAvailable() || !ioInstance) return;
+  try {
+    const friends = await query(
+      `SELECT CASE WHEN requester_id = ? THEN addressee_id ELSE requester_id END AS friend_id
+         FROM friendships
+        WHERE (requester_id = ? OR addressee_id = ?) AND status = 'accepted'`,
+      [userId, userId, userId]
+    );
+    for (const f of friends) {
+      ioInstance.to('user:' + f.friend_id).emit('friend:status', { userId, online });
+    }
+  } catch (err) {
+    console.error('broadcastStatusToFriends failed', err);
+  }
+}
+
+// Periodically prune expired challenges so they don't accumulate.
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, ch] of pendingChallenges.entries()) {
+    if (ch.expiresAt < now) pendingChallenges.delete(token);
+  }
+}, 30_000);
+
 function registerHandlers(io, socket) {
+  ioInstance = io;
   // identity is resolved on first auth message
   socket.data.user = null;
 
@@ -211,6 +267,9 @@ function registerHandlers(io, socket) {
       const payload = verifyToken(data.token);
       if (payload) {
         socket.data.user = { id: payload.sub, username: payload.username };
+        socket.join('user:' + payload.sub);
+        const cameOnline = setUserOnline(payload.sub, socket.id);
+        if (cameOnline) broadcastStatusToFriends(payload.sub, true);
       }
     }
     if (typeof ack === 'function') ack({ ok: true, user: socket.data.user });
@@ -546,7 +605,127 @@ function registerHandlers(io, socket) {
     }
   });
 
+  /* Friend challenge: sender creates a private room and emits an invite to
+   * the target via their user:room. The recipient either accepts (server
+   * pre-fills the second seat with their identity + a seatToken; both clients
+   * navigate to the new game) or declines (room is destroyed, sender
+   * notified). Token expires after 60s. */
+  socket.on('friend:challenge', async (data, ack) => {
+    if (!socket.data.user) return ack && ack({ error: 'Login erforderlich.' });
+    if (!dbAvailable()) return ack && ack({ error: 'Datenbank nicht konfiguriert.' });
+    const targetId = (data && data.friendId) | 0;
+    if (!targetId) return ack && ack({ error: 'Ziel fehlt.' });
+    try {
+      // Verify the target is actually a confirmed friend.
+      const friendCheck = await query(
+        `SELECT 1 FROM friendships
+          WHERE status = 'accepted'
+            AND ((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?))
+          LIMIT 1`,
+        [socket.data.user.id, targetId, targetId, socket.data.user.id]
+      );
+      if (!friendCheck.length) return ack && ack({ error: 'Nicht in deiner Freundesliste.' });
+      if (!isUserOnline(targetId)) return ack && ack({ error: 'Freund ist gerade offline.' });
+      const targetRows = await query('SELECT id, username, rating FROM users WHERE id = ?', [targetId]);
+      if (!targetRows.length) return ack && ack({ error: 'Freund nicht gefunden.' });
+      const myRows = await query('SELECT rating FROM users WHERE id = ?', [socket.data.user.id]);
+      const myRating = myRows[0] ? myRows[0].rating : null;
+      // Create the room with the sender's seat already filled.
+      const shape = (data && data.shape) || 'standard';
+      const tc = (data && data.timeControl) || { initial: 0, increment: 0 };
+      const seat = (data && data.seat === 'b') ? 'b' : (data && data.seat === 'w') ? 'w' : 'random';
+      const customSize = data && data.customSize;
+      const room = createRoom({
+        visibility: 'private', rated: false, timeControl: tc, shape, customSize,
+        createdBy: socket.data.user.id,
+      });
+      const myColor = seat === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : seat;
+      assignSeat(room, myColor, socket, socket.data.user.username, myRating);
+      socket.join(roomChannel(room.code));
+      userIndex.set(socket.id, room.code);
+
+      const challengeToken = require('crypto').randomBytes(16).toString('hex');
+      pendingChallenges.set(challengeToken, {
+        fromUserId: socket.data.user.id,
+        toUserId: targetId,
+        roomCode: room.code,
+        expiresAt: Date.now() + 60_000,
+      });
+      io.to('user:' + targetId).emit('friend:incoming_challenge', {
+        challengeToken,
+        from: { id: socket.data.user.id, username: socket.data.user.username, rating: myRating },
+        shape: room.shape,
+        shapeOpts: room.shapeOpts,
+        timeControl: room.timeControl,
+        yourColor: myColor === 'w' ? 'b' : 'w',
+      });
+      if (typeof ack === 'function') {
+        ack({ ok: true, code: room.code, color: myColor,
+              seatToken: myColor === 'w' ? room.white.seatToken : room.black.seatToken,
+              challengeToken });
+      }
+    } catch (err) {
+      console.error('friend:challenge failed', err);
+      if (typeof ack === 'function') ack({ error: 'Herausforderung fehlgeschlagen.' });
+    }
+  });
+
+  socket.on('friend:accept_challenge', async (data, ack) => {
+    if (!socket.data.user) return ack && ack({ error: 'Login erforderlich.' });
+    const token = data && data.challengeToken;
+    const ch = pendingChallenges.get(token);
+    if (!ch) return ack && ack({ error: 'Einladung abgelaufen.' });
+    if (ch.toUserId !== socket.data.user.id) return ack && ack({ error: 'Nicht für dich.' });
+    pendingChallenges.delete(token);
+    const room = getRoom(ch.roomCode);
+    if (!room) {
+      io.to('user:' + ch.fromUserId).emit('friend:challenge_cancelled', { challengeToken: token, reason: 'Raum nicht mehr verfügbar.' });
+      return ack && ack({ error: 'Raum nicht mehr verfügbar.' });
+    }
+    // Pre-fill the open seat for the acceptor with a fresh seatToken so they
+    // can claim it via the normal room:join flow.
+    const openColor = !room.white ? 'w' : !room.black ? 'b' : null;
+    if (!openColor) return ack && ack({ error: 'Raum bereits voll.' });
+    let myRating = null;
+    try {
+      const r = await query('SELECT rating FROM users WHERE id = ?', [socket.data.user.id]);
+      myRating = r[0] ? r[0].rating : null;
+    } catch {}
+    const newSeatToken = require('crypto').randomBytes(16).toString('hex');
+    const seat = {
+      socketId: null,
+      userId: socket.data.user.id,
+      name: socket.data.user.username,
+      rating: myRating,
+      connected: false,
+      seatToken: newSeatToken,
+      bot: null,
+    };
+    if (openColor === 'w') room.white = seat; else room.black = seat;
+    room.lastActivity = Date.now();
+    // Tell the challenger their friend accepted.
+    io.to('user:' + ch.fromUserId).emit('friend:challenge_accepted', { challengeToken: token, code: ch.roomCode });
+    if (typeof ack === 'function') ack({ ok: true, code: ch.roomCode, color: openColor, seatToken: newSeatToken });
+  });
+
+  socket.on('friend:decline_challenge', (data, ack) => {
+    const token = data && data.challengeToken;
+    const ch = pendingChallenges.get(token);
+    if (!ch) return ack && ack({ ok: true });
+    if (socket.data.user && ch.toUserId !== socket.data.user.id) return ack && ack({ error: 'Nicht für dich.' });
+    pendingChallenges.delete(token);
+    // Tear down the empty room.
+    const room = getRoom(ch.roomCode);
+    if (room && (!room.black || !room.white)) deleteRoom(ch.roomCode);
+    io.to('user:' + ch.fromUserId).emit('friend:challenge_declined', { challengeToken: token });
+    if (typeof ack === 'function') ack({ ok: true });
+  });
+
   socket.on('disconnect', () => {
+    if (socket.data.user) {
+      const wentOffline = setUserOffline(socket.data.user.id, socket.id);
+      if (wentOffline) broadcastStatusToFriends(socket.data.user.id, false);
+    }
     const code = userIndex.get(socket.id);
     userIndex.delete(socket.id);
     if (!code) return;
@@ -722,4 +901,4 @@ async function saveAllBotSessions() {
   await Promise.all(work);
 }
 
-module.exports = { registerHandlers, saveAllBotSessions };
+module.exports = { registerHandlers, saveAllBotSessions, isUserOnline };

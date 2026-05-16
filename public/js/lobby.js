@@ -295,6 +295,42 @@
   socket.on('connect', () => { auth(); refreshPublic(); });
   socket.on('lobby:list', (data) => renderPublic(data.rooms || []));
 
+  // Incoming friend challenge popup. Wired only when a #incoming-modal
+  // element exists on the page (the lobby has one).
+  const inModal = document.getElementById('incoming-modal');
+  if (inModal) {
+    let activeChallenge = null;
+    const inFrom = document.getElementById('lobby-incoming-from');
+    const inDetail = document.getElementById('lobby-incoming-detail');
+    const inAccept = document.getElementById('lobby-incoming-accept');
+    const inDecline = document.getElementById('lobby-incoming-decline');
+    const shapeNames = { standard: 'Standard', octagon: 'Achteck', hexagon: 'Sechseck', cross: 'Kreuz', hole: 'Loch', custom: 'Custom' };
+    socket.on('friend:incoming_challenge', (data) => {
+      activeChallenge = data;
+      inFrom.textContent = data.from.username + (data.from.rating ? ' (' + data.from.rating + ')' : '');
+      const tc = data.timeControl && data.timeControl.initial
+        ? Math.round(data.timeControl.initial / 60) + '+' + data.timeControl.increment
+        : 'ohne Uhr';
+      inDetail.textContent = (shapeNames[data.shape] || data.shape) + ' • ' + tc +
+        ' • du als ' + (data.yourColor === 'w' ? 'Weiß' : 'Schwarz');
+      Api.openModal(inModal);
+    });
+    inAccept.addEventListener('click', () => {
+      if (!activeChallenge) return;
+      socket.emit('friend:accept_challenge', { challengeToken: activeChallenge.challengeToken }, (res) => {
+        if (res && res.error) { alert(res.error); Api.closeModal(inModal); return; }
+        Api.saveSeat(res.code, res.color, res.seatToken);
+        location.href = '/game.html?code=' + encodeURIComponent(res.code);
+      });
+    });
+    inDecline.addEventListener('click', () => {
+      if (!activeChallenge) return;
+      socket.emit('friend:decline_challenge', { challengeToken: activeChallenge.challengeToken });
+      activeChallenge = null;
+      Api.closeModal(inModal);
+    });
+  }
+
   // PWA shortcut: /?action=create -> trigger room creation as soon as a
   // nickname is available.
   if (new URLSearchParams(location.search).get('action') === 'create') {

@@ -58,6 +58,67 @@
     </section>
   </main>
 
+  <div id="challenge-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="challenge-title">
+    <div class="modal-content">
+      <button class="modal-close" data-close aria-label="Schließen" type="button">×</button>
+      <h2 id="challenge-title">Spielen gegen <span id="challenge-friend-name">…</span></h2>
+      <form id="challenge-form">
+        <div class="row">
+          <label>Zeit (Min.)
+            <select id="ch-tc-initial">
+              <option value="0">Ohne Uhr</option>
+              <option value="1">1 Bullet</option>
+              <option value="3" selected>3 Blitz</option>
+              <option value="5">5</option>
+              <option value="10">10 Rapid</option>
+              <option value="15">15</option>
+              <option value="30">30</option>
+            </select>
+          </label>
+          <label>Inkrement (Sek.)
+            <select id="ch-tc-increment">
+              <option value="0">0</option>
+              <option value="2" selected>2</option>
+              <option value="5">5</option>
+              <option value="10">10</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <label>Farbe
+            <select id="ch-seat">
+              <option value="random" selected>Zufällig</option>
+              <option value="w">Weiß</option>
+              <option value="b">Schwarz</option>
+            </select>
+          </label>
+          <label>Brettform
+            <select id="ch-shape">
+              <option value="standard" selected>Standard 8x8</option>
+              <option value="octagon">Achteck 14x14</option>
+              <option value="hexagon">Sechseck 16x9</option>
+              <option value="cross">Kreuz 12x12</option>
+              <option value="hole">Loch 10x10</option>
+            </select>
+          </label>
+        </div>
+        <p id="ch-error" class="error hidden" role="alert" aria-live="assertive"></p>
+        <button type="submit" class="btn btn-primary">Einladung senden</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="incoming-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="incoming-title">
+    <div class="modal-content">
+      <h2 id="incoming-title"><span id="incoming-from">…</span> fordert dich heraus</h2>
+      <p class="muted" id="incoming-detail">…</p>
+      <div class="row">
+        <button id="incoming-accept" class="btn btn-primary">Annehmen</button>
+        <button id="incoming-decline" class="btn btn-ghost">Ablehnen</button>
+      </div>
+    </div>
+  </div>
+
   <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="confirm-title">
     <div class="modal-content small">
       <h2 id="confirm-title">Freund entfernen?</h2>
@@ -69,6 +130,7 @@
     </div>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/friends.js"></script>
   <script>

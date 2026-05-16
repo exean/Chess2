@@ -301,6 +301,17 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); ou
 .list .pill.pill-draw  { background: color-mix(in oklch, var(--fg-dim) 20%, transparent); color: var(--fg-dim); }
 
 /* History page rows: stacked content on left, action buttons on right. */
+.online-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 2px;
+}
+.online-dot.on  { background: var(--good); box-shadow: 0 0 6px color-mix(in oklch, var(--good) 50%, transparent); }
+.online-dot.off { background: var(--fg-dim); opacity: 0.4; }
+
 .history-row { align-items: center; }
 .history-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2xs); }
 .history-line1 { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
