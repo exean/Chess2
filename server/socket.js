@@ -363,6 +363,8 @@ function registerHandlers(io, socket) {
       if (reclaim) {
         socket.join(roomChannel(code));
         userIndex.set(socket.id, code);
+        // Reconnect within the grace window cancels any pending auto-pause.
+        cancelPendingPause(code);
         // Resumed room: kick the active clock off so time starts ticking from
         // the moment the user actually reconnects, not from API-resume time.
         if (room.timeControl.initial && !room.clock.lastMoveAt) {
@@ -385,6 +387,7 @@ function registerHandlers(io, socket) {
         room.lastActivity = Date.now();
         socket.join(roomChannel(code));
         userIndex.set(socket.id, code);
+        cancelPendingPause(code);
         emitRoomState(io, room);
         return ack && ack({ ok: true, code, color: 'w', seatToken: room.white.seatToken, state: publicRoom(room) });
       }
@@ -395,6 +398,7 @@ function registerHandlers(io, socket) {
         room.lastActivity = Date.now();
         socket.join(roomChannel(code));
         userIndex.set(socket.id, code);
+        cancelPendingPause(code);
         emitRoomState(io, room);
         return ack && ack({ ok: true, code, color: 'b', seatToken: room.black.seatToken, state: publicRoom(room) });
       }
@@ -629,6 +633,7 @@ function registerHandlers(io, socket) {
     if (!opp || !opp.bot) return ack && ack({ error: 'Nur Bot-Partien können pausiert werden.' });
     if (!mySeat.userId) return ack && ack({ error: 'Login erforderlich zum Pausieren.' });
     try {
+      cancelPendingPause(room.code);
       await pauseBotRoom(room, seatInfo.color, mySeat.userId);
       userIndex.delete(socket.id);
       socket.leave(roomChannel(room.code));
@@ -786,14 +791,14 @@ function registerHandlers(io, socket) {
       const otherSeat = droppedColor === 'w' ? room.black : room.white;
       if (otherSeat && otherSeat.socketId) io.to(otherSeat.socketId).emit('voice:peer-left');
     }
-    // Auto-save: logged-in player drops out of an active bot game -> snapshot
-    // so they don't lose progress to the 30-min idle GC or a server restart.
+    // Auto-pause: logged-in player drops out of an active bot game ->
+    // schedule a snapshot, but give them a 30s window to reconnect first.
+    // A quick reclaim via seatToken or userId cancels the timer.
     if (humanWasLoggedIn && room.status === 'active') {
       const oppSeat = humanWasLoggedIn.color === 'w' ? room.black : room.white;
       if (oppSeat && oppSeat.bot) {
-        pauseBotRoom(room, humanWasLoggedIn.color, humanWasLoggedIn.userId).catch((err) => {
-          console.error('auto-pause on disconnect failed:', err.message);
-        });
+        schedulePauseWithGrace(room, humanWasLoggedIn.color, humanWasLoggedIn.userId);
+        emitRoomState(io, room);
         return;
       }
     }
@@ -896,6 +901,37 @@ function restartRoom(io, room) {
 
 /* Snapshot the room to bot_sessions and remove it from memory. Used by the
  * explicit bot:pause event and by the disconnect auto-save path. */
+/* Pending auto-pauses awaiting a 30s grace period before they fire.
+ * Keyed by room code so a quick reconnect can cancel the timer cleanly.
+ * Without this, a brief network blip would auto-pause + delete the room
+ * before the client's socket reconnect cycle finishes - the user then
+ * comes back to a 'Raum nicht gefunden' error. */
+const AUTO_PAUSE_GRACE_MS = 30_000;
+const pendingPauses = new Map(); // roomCode -> { timer, color, userId }
+
+function schedulePauseWithGrace(room, userColor, userId) {
+  if (pendingPauses.has(room.code)) return;
+  const timer = setTimeout(() => {
+    pendingPauses.delete(room.code);
+    const r = rooms.get(room.code);
+    if (!r || r.status !== 'active') return;
+    const target = userColor === 'w' ? r.white : r.black;
+    // User came back during grace - target is reclaimed and online again.
+    if (!target || target.connected) return;
+    pauseBotRoom(r, userColor, userId).catch((err) => {
+      console.error('auto-pause after grace failed:', err.message);
+    });
+  }, AUTO_PAUSE_GRACE_MS);
+  pendingPauses.set(room.code, { timer, color: userColor, userId });
+}
+
+function cancelPendingPause(roomCode) {
+  const p = pendingPauses.get(roomCode);
+  if (!p) return;
+  clearTimeout(p.timer);
+  pendingPauses.delete(roomCode);
+}
+
 async function pauseBotRoom(room, userColor, userId) {
   if (!dbAvailable()) throw new Error('DB not configured');
   if (!room || room.status !== 'active') return;
@@ -934,6 +970,8 @@ async function saveAllBotSessions() {
     const bot   = w.bot ? w : (b.bot ? b : null);
     if (!human || !bot || !human.userId) continue;
     const userColor = human === w ? 'w' : 'b';
+    // Cancel any pending grace timer so the shutdown save isn't a no-op.
+    cancelPendingPause(room.code);
     work.push(pauseBotRoom(room, userColor, human.userId).catch((err) => {
       console.error('shutdown save failed for ' + room.code, err.message);
     }));
