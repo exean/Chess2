@@ -83,6 +83,22 @@ a:hover { text-decoration: underline; }
   top: 0;
   z-index: 5;
 }
+.hamburger-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-size: 1.3rem;
+  width: 44px; height: 44px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex: 0 0 auto;
+}
+.hamburger-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hamburger-toggle:hover { background: var(--surface-overlay); }
 .brand {
   font-weight: 900;
   font-size: 1.4rem;
@@ -723,6 +739,32 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); ou
   overflow-y: auto;
   border: 1px solid var(--border-soft);
   font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  /* Multiple auth/nav buttons would wrap into stacked rows below this
+     width. Collapse them behind a hamburger toggle instead. */
+  .topbar .hamburger-toggle { display: inline-flex; }
+  .topbar .auth-area {
+    position: absolute;
+    top: 100%;
+    right: var(--space-sm);
+    left: var(--space-sm);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-xs);
+    background: var(--bg-2);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    padding: var(--space-sm);
+    box-shadow: var(--shadow);
+    z-index: 10;
+    display: none;
+    margin-top: var(--space-2xs);
+  }
+  .topbar.menu-open .auth-area { display: flex; }
+  .topbar .auth-area .btn,
+  .topbar .auth-area a.btn { width: 100%; justify-content: center; min-height: 44px; }
 }
 
 @media (max-width: 480px) {

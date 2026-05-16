@@ -96,6 +96,38 @@
     }
   });
 
+  /* Hamburger menu for the topbar - only does anything on viewports where
+   * the auth-area would otherwise wrap. CSS handles visibility; JS handles
+   * toggling, click-outside-to-close and Escape. */
+  function wireHamburger() {
+    const toggle = document.querySelector('.hamburger-toggle');
+    const topbar = document.querySelector('.topbar');
+    if (!toggle || !topbar) return;
+    const close = () => {
+      topbar.classList.remove('menu-open');
+      toggle.setAttribute('aria-expanded', 'false');
+    };
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = !topbar.classList.contains('menu-open');
+      topbar.classList.toggle('menu-open', open);
+      toggle.setAttribute('aria-expanded', String(open));
+    });
+    document.addEventListener('click', (e) => {
+      if (!topbar.classList.contains('menu-open')) return;
+      if (e.target.closest('.topbar')) return;
+      close();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && topbar.classList.contains('menu-open')) close();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireHamburger);
+  } else {
+    wireHamburger();
+  }
+
   root.Chess2Api = {
     getToken, setToken, getName, setName,
     request, saveSeat, loadSeat, clearSeat,
