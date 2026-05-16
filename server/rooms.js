@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const { Chess, SHAPES } = require('../shared/chess-engine');
 
 const VALID_SHAPES = [...Object.keys(SHAPES), 'custom'];
@@ -171,11 +172,76 @@ function gcRooms() {
 
 setInterval(gcRooms, 1000 * 60 * 5);
 
+/* Rebuild a previously-saved bot session as a fresh in-memory room.
+ * The human seat is pre-filled with the user's identity + a fresh
+ * seatToken so the resumed game waits for the client to reclaim it via
+ * room:join. The bot's clock counter is what was saved at pause time;
+ * the timer doesn't start until the user reconnects. */
+function restoreBotSession(saved, userInfo) {
+  const code = makeCode();
+  const shapeOpts = saved.shape_opts ? safeJson(saved.shape_opts) : null;
+  const norm = normalizeShape(saved.shape || 'standard', shapeOpts);
+  const chess = new Chess({ shape: norm.engineArg });
+  chess.load(saved.fen);
+  const moves = saved.moves_json ? (safeJson(saved.moves_json) || []) : [];
+  const room = {
+    code,
+    visibility: 'private',
+    timeControl: { initial: saved.time_initial | 0, increment: saved.time_increment | 0 },
+    rated: false,
+    shape: norm.name,
+    shapeOpts: norm.opts,
+    shapeArg: norm.engineArg,
+    status: 'active',
+    white: null,
+    black: null,
+    spectators: [],
+    chess,
+    moveList: moves,
+    chat: [],
+    clock: {
+      whiteMs: saved.clock_white_ms | 0,
+      blackMs: saved.clock_black_ms | 0,
+      lastMoveAt: null,
+      timerHandle: null,
+    },
+    drawOffer: null,
+    rematchOffer: null,
+    result: null,
+    termination: null,
+    createdAt: Date.now(),
+    lastActivity: Date.now(),
+    createdBy: userInfo.userId || null,
+  };
+  const userColor = saved.user_color === 'b' ? 'b' : 'w';
+  const botColor = userColor === 'w' ? 'b' : 'w';
+  const botSeat = createBotSeat(saved.bot_difficulty);
+  const seatToken = crypto.randomBytes(16).toString('hex');
+  const humanSeat = {
+    socketId: null,
+    userId: userInfo.userId,
+    name: userInfo.username,
+    rating: userInfo.rating || null,
+    connected: false,
+    seatToken,
+    bot: null,
+  };
+  if (userColor === 'w') { room.white = humanSeat; room.black = botSeat; }
+  else                    { room.white = botSeat;   room.black = humanSeat; }
+  rooms.set(code, room);
+  return { code, color: userColor, seatToken };
+}
+
+function safeJson(s) {
+  try { return typeof s === 'string' ? JSON.parse(s) : s; } catch { return null; }
+}
+
 module.exports = {
   rooms,
   userIndex,
   createRoom,
   createBotSeat,
+  restoreBotSession,
   getRoom,
   deleteRoom,
   listPublicLobbies,

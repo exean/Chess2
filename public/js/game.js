@@ -51,6 +51,7 @@
     btnChessnutFlip: document.getElementById('btn-chessnut-flip'),
     chessnutStatus: document.getElementById('chessnut-status'),
     btnReview: document.getElementById('btn-review'),
+    btnPause: document.getElementById('btn-pause'),
     reviewBar: document.getElementById('review-bar'),
     btnRvStart: document.getElementById('btn-rv-start'),
     btnRvPrev: document.getElementById('btn-rv-prev'),
@@ -363,6 +364,10 @@
     const finished = state && state.status === 'finished';
     els.btnRematch.classList.toggle('hidden', !(finished && isPlayer));
     els.btnReview.classList.toggle('hidden', !(finished && (state.moves || []).length));
+    // Pause: bot games only, when active and the user has an account token.
+    const oppSeat = state && (myColor === 'w' ? state.black : myColor === 'b' ? state.white : null);
+    const isBotGame = !!(oppSeat && oppSeat.bot);
+    els.btnPause.classList.toggle('hidden', !(active && isBotGame && Api.getToken() && !isArchive));
   }
 
   function appendChat(msg) {
@@ -470,6 +475,19 @@
     socket.emit('room:leave');
     Api.clearSeat(code);
     location.href = '/';
+  });
+  els.btnPause.addEventListener('click', () => {
+    if (!confirm('Bot-Partie pausieren und in den Account-Speicher legen? Du kannst sie aus der Lobby fortsetzen.')) return;
+    els.btnPause.disabled = true;
+    socket.emit('bot:pause', null, (res) => {
+      if (res && res.error) {
+        alert(res.error);
+        els.btnPause.disabled = false;
+        return;
+      }
+      Api.clearSeat(code);
+      location.href = '/';
+    });
   });
   els.btnResign.addEventListener('click', () => {
     if (!confirm('Wirklich aufgeben?')) return;

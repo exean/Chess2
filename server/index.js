@@ -10,8 +10,9 @@ const { Server } = require('socket.io');
 
 const { router: authRouter, attachUser } = require('./auth');
 const { router: gamesRouter } = require('./games');
+const { router: botSessionsRouter } = require('./bot-sessions');
 const { dbAvailable, runMigrations } = require('./db');
-const { registerHandlers } = require('./socket');
+const { registerHandlers, saveAllBotSessions } = require('./socket');
 
 const app = express();
 app.use(express.json({ limit: '64kb' }));
@@ -22,6 +23,7 @@ app.use((req, _res, next) => {
 app.use(attachUser);
 app.use('/api/auth', authRouter);
 app.use('/api/games', gamesRouter);
+app.use('/api/bot-sessions', botSessionsRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, db: dbAvailable(), time: new Date().toISOString() });
@@ -101,5 +103,20 @@ async function start() {
     console.log(`Chess2 listening on port ${PORT} (DB: ${dbAvailable() ? 'on' : 'off'})`);
   });
 }
+
+// Best-effort: snapshot in-flight bot games to bot_sessions before the
+// process exits on Plesk restart / SIGTERM, so logged-in users don't lose
+// progress to a graceful shutdown.
+let shuttingDown = false;
+async function gracefulShutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(signal + ' received - snapshotting bot games...');
+  try { await saveAllBotSessions(); } catch (err) { console.error('shutdown save failed:', err); }
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
 
 start();

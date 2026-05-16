@@ -46,3 +46,22 @@ CREATE TABLE IF NOT EXISTS games (
   KEY idx_black_user (black_user_id),
   KEY idx_finished (finished_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS bot_sessions (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id        INT UNSIGNED NOT NULL,
+  user_color     CHAR(1) NOT NULL,
+  bot_difficulty VARCHAR(16) NOT NULL,
+  shape          VARCHAR(32) NOT NULL DEFAULT 'standard',
+  shape_opts     VARCHAR(255) NULL,
+  time_initial   INT NOT NULL DEFAULT 0,
+  time_increment INT NOT NULL DEFAULT 0,
+  clock_white_ms INT NOT NULL DEFAULT 0,
+  clock_black_ms INT NOT NULL DEFAULT 0,
+  fen            TEXT NOT NULL,
+  moves_json     MEDIUMTEXT NULL,
+  paused_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_user (user_id),
+  CONSTRAINT fk_bot_session_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

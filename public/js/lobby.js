@@ -23,6 +23,8 @@
     customSize: document.getElementById('custom-size'),
     customW: document.getElementById('custom-w'),
     customH: document.getElementById('custom-h'),
+    pausedSection: document.getElementById('paused-section'),
+    pausedList: document.getElementById('paused-list'),
     authModal: document.getElementById('auth-modal'),
     authForm: document.getElementById('auth-form'),
     authTitle: document.getElementById('auth-title'),
@@ -299,6 +301,75 @@
     if (document.readyState === 'complete') trigger();
     else window.addEventListener('load', trigger);
   }
+
+  // Resumable bot games belonging to the logged-in user.
+  async function loadPausedSessions() {
+    if (!user) { els.pausedSection.classList.add('hidden'); return; }
+    try {
+      const res = await Api.request('/api/bot-sessions');
+      const sessions = res.entries || [];
+      if (!sessions.length) { els.pausedSection.classList.add('hidden'); return; }
+      els.pausedSection.classList.remove('hidden');
+      els.pausedList.innerHTML = '';
+      for (const s of sessions) {
+        const li = document.createElement('li');
+        const info = document.createElement('div');
+        const diffLabel = ({ easy: 'leicht', medium: 'mittel', hard: 'schwer' })[s.botDifficulty] || s.botDifficulty;
+        const shape = shapeLabel(s.shape, s.shapeOpts);
+        const tc = formatTC(s.timeControl);
+        const when = new Date(s.pausedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+        info.innerHTML = '<strong>Computer (' + escapeHtml(diffLabel) + ')</strong>' +
+          ' <span class="pill">' + escapeHtml(shape) + '</span>' +
+          ' <span class="pill">' + escapeHtml(tc) + '</span>' +
+          ' <span class="pill">' + (s.userColor === 'w' ? 'als Weiß' : 'als Schwarz') + '</span>' +
+          '<div class="muted history-line2">pausiert ' + escapeHtml(when) + '</div>';
+        const actions = document.createElement('div');
+        actions.className = 'history-actions';
+        const resume = document.createElement('button');
+        resume.className = 'btn btn-primary';
+        resume.textContent = 'Fortsetzen';
+        resume.addEventListener('click', () => resumeSession(s.id, resume));
+        const discard = document.createElement('button');
+        discard.className = 'btn btn-ghost';
+        discard.textContent = 'Verwerfen';
+        discard.addEventListener('click', () => discardSession(s.id));
+        actions.appendChild(resume);
+        actions.appendChild(discard);
+        li.className = 'history-row';
+        li.appendChild(info);
+        li.appendChild(actions);
+        els.pausedList.appendChild(li);
+      }
+    } catch (err) {
+      // 401 just means not logged in - hide section silently.
+      els.pausedSection.classList.add('hidden');
+    }
+  }
+
+  async function resumeSession(id, btn) {
+    btn.disabled = true;
+    try {
+      const res = await Api.request('/api/bot-sessions/' + id + '/resume', { method: 'POST' });
+      Api.saveSeat(res.code, res.color, res.seatToken);
+      location.href = '/game.html?code=' + encodeURIComponent(res.code);
+    } catch (err) {
+      alert('Fortsetzen fehlgeschlagen: ' + err.message);
+      btn.disabled = false;
+    }
+  }
+  async function discardSession(id) {
+    if (!confirm('Pausierte Partie verwerfen?')) return;
+    try {
+      await Api.request('/api/bot-sessions/' + id, { method: 'DELETE' });
+      loadPausedSessions();
+    } catch (err) {
+      alert('Verwerfen fehlgeschlagen: ' + err.message);
+    }
+  }
+
+  // Refresh after login completes (renderAuth -> auth -> ...).
+  const _origRenderAuth = renderAuth;
+  renderAuth = function () { _origRenderAuth(); loadPausedSessions(); };
 
   loadMe();
   loadLeaderboard();

@@ -302,7 +302,16 @@ function registerHandlers(io, socket) {
       if (reclaim) {
         socket.join(roomChannel(code));
         userIndex.set(socket.id, code);
+        // Resumed room: kick the active clock off so time starts ticking from
+        // the moment the user actually reconnects, not from API-resume time.
+        if (room.timeControl.initial && !room.clock.lastMoveAt) {
+          room.clock.lastMoveAt = Date.now();
+        }
+        if (!room.clock.timerHandle) startClock(io, room);
         emitRoomState(io, room);
+        // If the bot already had the move when the room was paused/restored,
+        // give it a nudge so the game continues right away.
+        scheduleBotMoveIfNeeded(io, room);
         return ack && ack({ ok: true, code, color: reclaim, seatToken: data.seatToken, state: publicRoom(room) });
       }
     }
@@ -514,6 +523,29 @@ function registerHandlers(io, socket) {
     }
   });
 
+  // Explicit pause: only meaningful for bot games the user is logged into.
+  // Snapshots room state to bot_sessions and tears down the in-memory room.
+  socket.on('bot:pause', async (_data, ack) => {
+    const room = getCurrentRoom(socket);
+    if (!room) return ack && ack({ error: 'Kein Raum.' });
+    if (room.status !== 'active') return ack && ack({ error: 'Spiel nicht aktiv.' });
+    const seatInfo = seatBySocket(room, socket.id);
+    if (!seatInfo) return ack && ack({ error: 'Nicht Teilnehmer.' });
+    const mySeat = seatInfo.color === 'w' ? room.white : room.black;
+    const opp    = seatInfo.color === 'w' ? room.black : room.white;
+    if (!opp || !opp.bot) return ack && ack({ error: 'Nur Bot-Partien können pausiert werden.' });
+    if (!mySeat.userId) return ack && ack({ error: 'Login erforderlich zum Pausieren.' });
+    try {
+      await pauseBotRoom(room, seatInfo.color, mySeat.userId);
+      userIndex.delete(socket.id);
+      socket.leave(roomChannel(room.code));
+      if (typeof ack === 'function') ack({ ok: true });
+    } catch (err) {
+      console.error('bot:pause failed', err);
+      if (typeof ack === 'function') ack({ error: 'Speichern fehlgeschlagen.' });
+    }
+  });
+
   socket.on('disconnect', () => {
     const code = userIndex.get(socket.id);
     userIndex.delete(socket.id);
@@ -521,19 +553,33 @@ function registerHandlers(io, socket) {
     const room = getRoom(code);
     if (!room) return;
     let droppedColor = null;
+    let humanWasLoggedIn = null;
     if (room.white && room.white.socketId === socket.id) {
       room.white.connected = false;
       if (room.white.voiceActive) { room.white.voiceActive = false; droppedColor = 'w'; }
+      if (room.white.userId) humanWasLoggedIn = { color: 'w', userId: room.white.userId };
     }
     if (room.black && room.black.socketId === socket.id) {
       room.black.connected = false;
       if (room.black.voiceActive) { room.black.voiceActive = false; droppedColor = 'b'; }
+      if (room.black.userId) humanWasLoggedIn = { color: 'b', userId: room.black.userId };
     }
     room.spectators = room.spectators.filter((s) => s.socketId !== socket.id);
     room.lastActivity = Date.now();
     if (droppedColor) {
       const otherSeat = droppedColor === 'w' ? room.black : room.white;
       if (otherSeat && otherSeat.socketId) io.to(otherSeat.socketId).emit('voice:peer-left');
+    }
+    // Auto-save: logged-in player drops out of an active bot game -> snapshot
+    // so they don't lose progress to the 30-min idle GC or a server restart.
+    if (humanWasLoggedIn && room.status === 'active') {
+      const oppSeat = humanWasLoggedIn.color === 'w' ? room.black : room.white;
+      if (oppSeat && oppSeat.bot) {
+        pauseBotRoom(room, humanWasLoggedIn.color, humanWasLoggedIn.userId).catch((err) => {
+          console.error('auto-pause on disconnect failed:', err.message);
+        });
+        return;
+      }
     }
     emitRoomState(io, room);
   });
@@ -629,4 +675,51 @@ function restartRoom(io, room) {
   scheduleBotMoveIfNeeded(io, room);
 }
 
-module.exports = { registerHandlers };
+/* Snapshot the room to bot_sessions and remove it from memory. Used by the
+ * explicit bot:pause event and by the disconnect auto-save path. */
+async function pauseBotRoom(room, userColor, userId) {
+  if (!dbAvailable()) throw new Error('DB not configured');
+  if (!room || room.status !== 'active') return;
+  // Capture current ticking-clock values BEFORE we stop the timer.
+  const snap = clockSnapshot(room) || { whiteMs: 0, blackMs: 0 };
+  // Block any in-flight setImmediate bot moves from landing post-pause.
+  room.status = 'paused';
+  stopClock(room);
+  const opp = userColor === 'w' ? room.black : room.white;
+  const shapeOptsJson = room.shapeOpts ? JSON.stringify(room.shapeOpts) : null;
+  await query(
+    `INSERT INTO bot_sessions
+       (user_id, user_color, bot_difficulty, shape, shape_opts,
+        time_initial, time_increment, clock_white_ms, clock_black_ms,
+        fen, moves_json)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [userId, userColor, opp.bot.difficulty,
+     room.shape || 'standard', shapeOptsJson,
+     room.timeControl.initial | 0, room.timeControl.increment | 0,
+     snap.whiteMs | 0, snap.blackMs | 0,
+     room.chess.fen(), JSON.stringify(room.moveList || [])]
+  );
+  deleteRoom(room.code);
+}
+
+/* Called from index.js on SIGTERM/SIGINT: best-effort save of every live
+ * bot game so a graceful Plesk restart doesn't drop matches. */
+async function saveAllBotSessions() {
+  if (!dbAvailable()) return;
+  const work = [];
+  for (const room of rooms.values()) {
+    if (!room || room.status !== 'active') continue;
+    const w = room.white, b = room.black;
+    if (!w || !b) continue;
+    const human = w.bot ? b : (b.bot ? w : null);
+    const bot   = w.bot ? w : (b.bot ? b : null);
+    if (!human || !bot || !human.userId) continue;
+    const userColor = human === w ? 'w' : 'b';
+    work.push(pauseBotRoom(room, userColor, human.userId).catch((err) => {
+      console.error('shutdown save failed for ' + room.code, err.message);
+    }));
+  }
+  await Promise.all(work);
+}
+
+module.exports = { registerHandlers, saveAllBotSessions };

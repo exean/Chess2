@@ -39,6 +39,7 @@
   }
   function clearSeat(code) { localStorage.removeItem(seatStorageKey(code)); }
 
+
   /* Accessible modal helper: opens with role=dialog semantics, traps Tab focus
    * inside the modal, returns focus to the opener on close, and closes on
    * Escape. Modals stay hidden via the existing .hidden class so other code
