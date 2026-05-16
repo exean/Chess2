@@ -62,6 +62,8 @@ function applyClockAfterMove(room) {
 async function persistFinishedGame(room) {
   if (!dbAvailable()) return;
   if (!room.white || !room.black) return;
+  // Aborted games don't earn a place in the history table - nothing happened.
+  if (room.termination === 'aborted') return;
   // Only persist games that involve at least one logged-in account.
   // Anonymous-vs-anonymous matches don't need to live in the DB.
   if (!room.white.userId && !room.black.userId) return;
@@ -379,6 +381,7 @@ function registerHandlers(io, socket) {
       if (room.white && room.white.userId === socket.data.user.id) {
         room.white.socketId = socket.id;
         room.white.connected = true;
+        room.white.disconnectedAt = null;
         room.lastActivity = Date.now();
         socket.join(roomChannel(code));
         userIndex.set(socket.id, code);
@@ -388,6 +391,7 @@ function registerHandlers(io, socket) {
       if (room.black && room.black.userId === socket.data.user.id) {
         room.black.socketId = socket.id;
         room.black.connected = true;
+        room.black.disconnectedAt = null;
         room.lastActivity = Date.now();
         socket.join(roomChannel(code));
         userIndex.set(socket.id, code);
@@ -582,6 +586,36 @@ function registerHandlers(io, socket) {
     }
   });
 
+  /* Abort: either side can cancel within the first 2 plies (i.e. before
+   * each color has made their second move) with no rating consequence and
+   * without persisting a row to the games table. */
+  socket.on('game:abort', (_d, ack) => {
+    const room = getCurrentRoom(socket);
+    if (!room || room.status !== 'active') return ack && ack({ error: 'Spiel nicht aktiv.' });
+    const seatInfo = seatBySocket(room, socket.id);
+    if (!seatInfo) return ack && ack({ error: 'Nicht Teilnehmer.' });
+    if ((room.moveList || []).length >= 4) return ack && ack({ error: 'Abbruch nur in den ersten 2 Zügen möglich.' });
+    endGame(io, room, '*', 'aborted');
+    if (typeof ack === 'function') ack({ ok: true });
+  });
+
+  /* Claim a forfeit win when the opponent has been disconnected for 60s+.
+   * Bots are always 'connected' so they can never be claim-forfeited. */
+  socket.on('game:claim_disconnect', (_d, ack) => {
+    const room = getCurrentRoom(socket);
+    if (!room || room.status !== 'active') return ack && ack({ error: 'Spiel nicht aktiv.' });
+    const seatInfo = seatBySocket(room, socket.id);
+    if (!seatInfo) return ack && ack({ error: 'Nicht Teilnehmer.' });
+    const opp = seatInfo.color === 'w' ? room.black : room.white;
+    if (!opp || opp.bot || opp.connected) return ack && ack({ error: 'Gegner ist nicht offline.' });
+    if (!opp.disconnectedAt || (Date.now() - opp.disconnectedAt) < 60_000) {
+      return ack && ack({ error: 'Bitte 60 Sekunden warten.' });
+    }
+    const result = seatInfo.color === 'w' ? '1-0' : '0-1';
+    endGame(io, room, result, 'disconnect_forfeit');
+    if (typeof ack === 'function') ack({ ok: true });
+  });
+
   // Explicit pause: only meaningful for bot games the user is logged into.
   // Snapshots room state to bot_sessions and tears down the in-memory room.
   socket.on('bot:pause', async (_data, ack) => {
@@ -733,13 +767,16 @@ function registerHandlers(io, socket) {
     if (!room) return;
     let droppedColor = null;
     let humanWasLoggedIn = null;
+    const now = Date.now();
     if (room.white && room.white.socketId === socket.id) {
       room.white.connected = false;
+      room.white.disconnectedAt = now;
       if (room.white.voiceActive) { room.white.voiceActive = false; droppedColor = 'w'; }
       if (room.white.userId) humanWasLoggedIn = { color: 'w', userId: room.white.userId };
     }
     if (room.black && room.black.socketId === socket.id) {
       room.black.connected = false;
+      room.black.disconnectedAt = now;
       if (room.black.voiceActive) { room.black.voiceActive = false; droppedColor = 'b'; }
       if (room.black.userId) humanWasLoggedIn = { color: 'b', userId: room.black.userId };
     }
@@ -771,6 +808,7 @@ function assignSeat(room, color, socket, name, rating) {
     name,
     rating,
     connected: true,
+    disconnectedAt: null,
     seatToken: newSeatToken(),
   };
   if (color === 'w') room.white = seat;
@@ -787,12 +825,14 @@ function tryReclaimSeat(room, seatToken, socket) {
   if (room.white && room.white.seatToken === seatToken) {
     room.white.socketId = socket.id;
     room.white.connected = true;
+    room.white.disconnectedAt = null;
     room.lastActivity = Date.now();
     return 'w';
   }
   if (room.black && room.black.seatToken === seatToken) {
     room.black.socketId = socket.id;
     room.black.connected = true;
+    room.black.disconnectedAt = null;
     room.lastActivity = Date.now();
     return 'b';
   }

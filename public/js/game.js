@@ -52,6 +52,8 @@
     chessnutStatus: document.getElementById('chessnut-status'),
     btnReview: document.getElementById('btn-review'),
     btnPause: document.getElementById('btn-pause'),
+    btnAbort: document.getElementById('btn-abort'),
+    btnClaim: document.getElementById('btn-claim'),
     reviewBar: document.getElementById('review-bar'),
     btnRvStart: document.getElementById('btn-rv-start'),
     btnRvPrev: document.getElementById('btn-rv-prev'),
@@ -313,6 +315,8 @@
         insufficient_material: 'Unzureichendes Material',
         threefold_repetition: 'Stellungswiederholung',
         fifty_move_rule: '50-Züge-Regel',
+        aborted: 'Partie abgebrochen',
+        disconnect_forfeit: 'Gegner offline',
       };
       msg = (labels[state.termination] || 'Beendet') + ' • Ergebnis: ' + state.result;
     }
@@ -370,10 +374,30 @@
     const finished = state && state.status === 'finished';
     els.btnRematch.classList.toggle('hidden', !(finished && isPlayer));
     els.btnReview.classList.toggle('hidden', !(finished && (state.moves || []).length));
-    // Pause: bot games only, when active and the user has an account token.
     const oppSeat = state && (myColor === 'w' ? state.black : myColor === 'b' ? state.white : null);
     const isBotGame = !!(oppSeat && oppSeat.bot);
+    // Pause: bot games only, when active and the user has an account token.
     els.btnPause.classList.toggle('hidden', !(active && isBotGame && Api.getToken() && !isArchive));
+    // Abort: only in the first two plies. Hides itself once the position is
+    // past move 1...something.
+    const earlyEnough = active && (state.moves || []).length < 4;
+    els.btnAbort.classList.toggle('hidden', !earlyEnough);
+    // Claim: visible after opponent has been disconnected for 60s (bots never
+    // count as disconnected). The check below also runs from refreshClocks
+    // so the button appears even without state events.
+    const claimable = canClaimDisconnect();
+    els.btnClaim.classList.toggle('hidden', !claimable);
+  }
+
+  function canClaimDisconnect() {
+    if (!state || state.status !== 'active') return false;
+    const me = myColor;
+    if (me !== 'w' && me !== 'b') return false;
+    const opp = me === 'w' ? state.black : state.white;
+    if (!opp || opp.bot || opp.connected) return false;
+    if (!opp.disconnectedAt) return false;
+    const t = (typeof opp.disconnectedAt === 'string') ? Date.parse(opp.disconnectedAt) : opp.disconnectedAt;
+    return (Date.now() - t) >= 60_000;
   }
 
   function appendChat(msg) {
@@ -481,6 +505,17 @@
     socket.emit('room:leave');
     Api.clearSeat(code);
     location.href = '/';
+  });
+  els.btnAbort.addEventListener('click', () => {
+    if (!confirm('Partie abbrechen? Wird nicht in deiner Historie gespeichert.')) return;
+    socket.emit('game:abort', null, (res) => {
+      if (res && res.error) alert(res.error);
+    });
+  });
+  els.btnClaim.addEventListener('click', () => {
+    socket.emit('game:claim_disconnect', null, (res) => {
+      if (res && res.error) alert(res.error);
+    });
   });
   els.btnPause.addEventListener('click', () => {
     if (!confirm('Bot-Partie pausieren und in den Account-Speicher legen? Du kannst sie aus der Lobby fortsetzen.')) return;
@@ -997,8 +1032,16 @@
     if (chessnut && chessnut.connected && lastBoardSnapshot) handleBoardChange(lastBoardSnapshot);
   };
 
-  // Local tick for smooth clock display between server updates.
-  clockTimer = setInterval(refreshClocks, 200);
+  // Local tick: refresh clocks + check whether the claim-disconnect
+  // button should now appear (60s opp-offline threshold).
+  clockTimer = setInterval(() => {
+    refreshClocks();
+    if (state && state.status === 'active') {
+      const shouldShow = canClaimDisconnect();
+      const hidden = els.btnClaim.classList.contains('hidden');
+      if (shouldShow === hidden) updateActionButtons();
+    }
+  }, 200);
   window.addEventListener('beforeunload', () => {
     clearInterval(clockTimer);
     if (voice) voice.disable();

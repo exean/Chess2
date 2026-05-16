@@ -62,6 +62,7 @@ function publicSeat(seat) {
     userId: seat.userId || null,
     rating: seat.rating || null,
     connected: seat.connected,
+    disconnectedAt: seat.disconnectedAt || null,
     bot: seat.bot ? { difficulty: seat.bot.difficulty } : null,
     voiceActive: Boolean(seat.voiceActive),
   };
