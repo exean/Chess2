@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { query, dbAvailable } = require('./db');
+const { Chess } = require('../shared/chess-engine');
 
 const router = express.Router();
 
@@ -174,6 +175,74 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('delete game failed', err);
     res.status(500).json({ error: 'Löschen fehlgeschlagen.' });
+  }
+});
+
+/* Lightweight PGN parser: pulls tag pairs and SAN tokens out of plain
+ * PGN text. Comments, variations, NAGs and result tokens are stripped.
+ * Single-game PGNs only - if multiple games are pasted, just the first
+ * one is parsed (everything after the first result token is ignored). */
+function parsePgn(text) {
+  const tags = {};
+  const tagRx = /\[(\w+)\s+"((?:[^"\\]|\\.)*)"\]/g;
+  let m;
+  while ((m = tagRx.exec(text))) {
+    tags[m[1]] = m[2].replace(/\\(.)/g, '$1');
+  }
+  // Everything after the last tag bracket is the movetext.
+  const lastTagEnd = text.lastIndexOf(']');
+  let movetext = (lastTagEnd >= 0 ? text.slice(lastTagEnd + 1) : text);
+  movetext = movetext
+    .replace(/\{[^}]*\}/g, ' ')  // comments
+    .replace(/\([^()]*\)/g, ' ') // single-level variations
+    .replace(/\$\d+/g, ' ')      // NAGs
+    .replace(/\d+\.+/g, ' ')     // move numbers (1. / 1...)
+    .replace(/[\r\n\t]+/g, ' ')
+    .trim();
+  const resultIdx = movetext.search(/\b(1-0|0-1|1\/2-1\/2|\*)\b/);
+  if (resultIdx >= 0) movetext = movetext.slice(0, resultIdx).trim();
+  const tokens = movetext.split(/\s+/).filter((t) => t && !/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t));
+  return { tags, moves: tokens };
+}
+
+// POST /api/games/import { pgn }  -> { id }
+// Stores the imported game under the current user's white seat with no
+// opponent. The user can review and delete it like any other archived game.
+router.post('/import', async (req, res) => {
+  if (!ensureAuth(req, res)) return;
+  const pgnText = String((req.body && req.body.pgn) || '').trim();
+  if (!pgnText) return res.status(400).json({ error: 'PGN fehlt.' });
+  if (pgnText.length > 200_000) return res.status(400).json({ error: 'PGN zu groß.' });
+  try {
+    const { tags, moves } = parsePgn(pgnText);
+    if (!moves.length) return res.status(400).json({ error: 'Keine gültigen Züge im PGN gefunden.' });
+    const chess = new Chess();
+    const moveList = [];
+    for (let i = 0; i < moves.length; i++) {
+      const san = moves[i];
+      const applied = chess.move(san);
+      if (!applied) {
+        return res.status(400).json({ error: 'Ungültiger Zug an Position ' + (i + 1) + ': ' + san });
+      }
+      moveList.push(applied);
+    }
+    const result = tags.Result || (chess.isGameOver() ? chess.result() : '*');
+    const whiteName = (tags.White || '?').slice(0, 64);
+    const blackName = (tags.Black || '?').slice(0, 64);
+    const finalFen = chess.fen();
+    const insert = await query(
+      `INSERT INTO games
+        (room_code, white_user_id, black_user_id, white_name, black_name,
+         time_initial, time_increment, rated, shape, shape_opts,
+         result, termination, pgn, moves_json, final_fen, finished_at)
+       VALUES ('IMPORT', ?, NULL, ?, ?, 0, 0, 0, 'standard', NULL, ?, ?, ?, ?, ?, NOW())`,
+      [req.user.id, whiteName, blackName, result, chess.terminationReason() || 'imported',
+       pgnText, JSON.stringify(moveList), finalFen]
+    );
+    res.json({ ok: true, id: insert.insertId });
+  } catch (err) {
+    console.error('pgn import failed', err);
+    res.status(400).json({ error: err.message || 'PGN-Import fehlgeschlagen.' });
   }
 });
 

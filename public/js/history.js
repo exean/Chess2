@@ -14,6 +14,13 @@
     confirmModal: document.getElementById('confirm-modal'),
     confirmDelete: document.getElementById('confirm-delete'),
     confirmCancel: document.getElementById('confirm-cancel'),
+    cardImport: document.getElementById('card-import'),
+    btnOpenImport: document.getElementById('btn-open-import'),
+    importModal: document.getElementById('import-modal'),
+    importForm: document.getElementById('import-form'),
+    importPgn: document.getElementById('import-pgn'),
+    importError: document.getElementById('import-error'),
+    importCancel: document.getElementById('import-cancel'),
   };
   const PAGE_SIZE = 30;
   let user = null;
@@ -203,6 +210,34 @@
     }
   }
 
+  // PGN import flow ---------------------------------------------------
+  els.btnOpenImport.addEventListener('click', () => {
+    els.importError.classList.add('hidden');
+    els.importPgn.value = '';
+    Api.openModal(els.importModal);
+    setTimeout(() => els.importPgn.focus(), 50);
+  });
+  els.importCancel.addEventListener('click', () => Api.closeModal(els.importModal));
+  els.importModal.addEventListener('click', (e) => {
+    if (e.target === els.importModal || e.target.dataset.close !== undefined) {
+      Api.closeModal(els.importModal);
+    }
+  });
+  els.importForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    els.importError.classList.add('hidden');
+    const pgn = els.importPgn.value.trim();
+    if (!pgn) return;
+    try {
+      const res = await Api.request('/api/games/import', { method: 'POST', body: { pgn } });
+      Api.closeModal(els.importModal);
+      location.href = '/game.html?archive=' + res.id;
+    } catch (err) {
+      els.importError.textContent = err.message;
+      els.importError.classList.remove('hidden');
+    }
+  });
+
   async function init() {
     if (Api.getToken()) {
       try {
@@ -217,6 +252,7 @@
       els.loadMore.classList.add('hidden');
       return;
     }
+    els.cardImport.classList.remove('hidden');
     loadGames(true);
   }
 
