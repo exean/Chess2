@@ -285,6 +285,7 @@
   });
 
   function showIncoming(data) {
+    if (window.Chess2Sound) window.Chess2Sound.notification();
     incomingChallenge = data;
     els.inFrom.textContent = data.from.username + (data.from.rating ? ' (' + data.from.rating + ')' : '');
     const tc = data.timeControl && data.timeControl.initial

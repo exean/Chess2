@@ -306,6 +306,7 @@
     const inDecline = document.getElementById('lobby-incoming-decline');
     const shapeNames = { standard: 'Standard', octagon: 'Achteck', hexagon: 'Sechseck', cross: 'Kreuz', hole: 'Loch', custom: 'Custom' };
     socket.on('friend:incoming_challenge', (data) => {
+      if (window.Chess2Sound) window.Chess2Sound.notification();
       activeChallenge = data;
       inFrom.textContent = data.from.username + (data.from.rating ? ' (' + data.from.rating + ')' : '');
       const tc = data.timeControl && data.timeControl.initial

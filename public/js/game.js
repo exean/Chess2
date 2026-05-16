@@ -319,8 +319,14 @@
     setStatus(msg);
   }
 
+  let lastSeenStatus = null;
   function refreshFromState(newState) {
+    const prevStatus = lastSeenStatus;
     state = newState;
+    lastSeenStatus = state.status;
+    if (prevStatus !== 'active' && state.status === 'active' && window.Chess2Sound) {
+      window.Chess2Sound.gameStart();
+    }
     if (state.shape) {
       const arg = state.shape === 'custom' && state.shapeOpts
         ? { kind: 'custom', width: state.shapeOpts.width, height: state.shapeOpts.height }
@@ -693,8 +699,22 @@
       renderMoves();
       renderStatus();
       refreshClocks();
+      playMoveSound(data.move);
     }
   });
+
+  function playMoveSound(move) {
+    const S = window.Chess2Sound;
+    if (!S || !move) return;
+    if (move.promotion)        S.promote();
+    else if (move.flags === 'k' || move.flags === 'q') S.castle();
+    else if (move.captured || move.flags === 'e')      S.capture();
+    else                                                S.move();
+    // Check sound fires AFTER the move sound so there's no overlap.
+    setTimeout(() => {
+      if (board.engine.inCheck() && state && state.status === 'active') S.check();
+    }, 130);
+  }
   socket.on('clock:tick', (snap) => {
     if (!state) return;
     state.clock = snap;
@@ -741,6 +761,12 @@
     els.endPgn.textContent = data.pgn || '';
     Api.openModal(els.endModal);
     if (iWon) celebrate();
+    const S = window.Chess2Sound;
+    if (S) {
+      if (iWon)        S.win();
+      else if (iLost)  S.lose();
+      else             S.draw();
+    }
   }
 
   /* Confetti shower spawned as DOM children; cleans itself up after

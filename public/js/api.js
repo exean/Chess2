@@ -96,6 +96,29 @@
     }
   });
 
+  /* Sound preference toggle in the topbar. The button (a .sound-toggle) is
+   * optional - wired only if present. Persists via window.Chess2Sound which
+   * uses localStorage; updates icon on the chess2:sound-pref-changed event. */
+  function wireSoundToggle() {
+    const btn = document.querySelector('.sound-toggle');
+    if (!btn) return;
+    const Sound = window.Chess2Sound;
+    const refresh = () => {
+      const on = !Sound || Sound.isEnabled();
+      btn.textContent = on ? '🔊' : '🔇';
+      btn.setAttribute('aria-label', on ? 'Ton aus' : 'Ton an');
+      btn.setAttribute('aria-pressed', String(on));
+    };
+    refresh();
+    btn.addEventListener('click', () => { if (Sound) Sound.toggle(); });
+    window.addEventListener('chess2:sound-pref-changed', refresh);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireSoundToggle);
+  } else {
+    wireSoundToggle();
+  }
+
   /* Hamburger menu for the topbar - only does anything on viewports where
    * the auth-area would otherwise wrap. CSS handles visibility; JS handles
    * toggling, click-outside-to-close and Escape. */
