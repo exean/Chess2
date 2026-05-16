@@ -154,11 +154,18 @@
         <label>Username
           <input type="text" name="username" maxlength="32" required autocomplete="username" />
         </label>
+        <label class="hidden" id="email-label">E-Mail <span class="muted">(für Passwort-Reset)</span>
+          <input type="email" name="email" maxlength="120" autocomplete="email" />
+        </label>
         <label>Passwort
           <input type="password" name="password" minlength="6" required autocomplete="current-password" />
         </label>
         <p id="auth-error" class="error hidden" role="alert" aria-live="assertive"></p>
+        <p id="auth-success" class="muted hidden" role="status" aria-live="polite"></p>
         <button type="submit" class="btn btn-primary">OK</button>
+        <p class="muted" style="margin-top:var(--space-sm); text-align:center;">
+          <a href="#" id="auth-forgot-link">Passwort vergessen?</a>
+        </p>
       </form>
     </div>
   </div>

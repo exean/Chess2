@@ -123,17 +123,51 @@
     socket.emit('auth', { token: Api.getToken() }, () => {});
   }
 
+  const emailLabel = document.getElementById('email-label');
+  const usernameInput = els.authForm.querySelector('input[name=username]');
+  const passwordInput = els.authForm.querySelector('input[name=password]');
+  const successEl = document.getElementById('auth-success');
+  const forgotLink = document.getElementById('auth-forgot-link');
+
   function openAuth(which) {
     mode = which;
-    els.authTitle.textContent = which === 'login' ? 'Login' : 'Account erstellen';
+    els.authTitle.textContent =
+      which === 'login' ? 'Login' :
+      which === 'register' ? 'Account erstellen' :
+      'Passwort vergessen';
     els.authError.classList.add('hidden');
+    successEl.classList.add('hidden');
     els.authForm.reset();
+    // Field visibility per mode:
+    //   forgot: only the username field, repurposed as the email input
+    //   register: username + email (optional) + password
+    //   login: username + password
+    const showEmail = (which === 'register');
+    emailLabel.classList.toggle('hidden', !showEmail);
+    if (which === 'forgot') {
+      usernameInput.type = 'email';
+      usernameInput.name = 'email';
+      usernameInput.autocomplete = 'email';
+      usernameInput.placeholder = 'deine@e-mail.de';
+      passwordInput.parentElement.classList.add('hidden');
+      passwordInput.required = false;
+      forgotLink.classList.add('hidden');
+    } else {
+      usernameInput.type = 'text';
+      usernameInput.name = 'username';
+      usernameInput.autocomplete = 'username';
+      usernameInput.placeholder = '';
+      passwordInput.parentElement.classList.remove('hidden');
+      passwordInput.required = true;
+      forgotLink.classList.remove('hidden');
+    }
     Api.openModal(els.authModal);
-    els.authForm.querySelector('input[name=username]').focus();
+    usernameInput.focus();
   }
 
   els.showLogin.addEventListener('click', () => openAuth('login'));
   els.showRegister.addEventListener('click', () => openAuth('register'));
+  forgotLink.addEventListener('click', (e) => { e.preventDefault(); openAuth('forgot'); });
   els.authModal.addEventListener('click', (e) => {
     if (e.target === els.authModal || e.target.dataset.close !== undefined) {
       Api.closeModal(els.authModal);
@@ -143,7 +177,15 @@
   els.authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(els.authForm));
+    els.authError.classList.add('hidden');
+    successEl.classList.add('hidden');
     try {
+      if (mode === 'forgot') {
+        await Api.request('/api/auth/forgot', { method: 'POST', body: { email: data.email } });
+        successEl.textContent = 'Falls die E-Mail bei uns hinterlegt ist, schicken wir dir einen Reset-Link.';
+        successEl.classList.remove('hidden');
+        return;
+      }
       const path = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
       const res = await Api.request(path, { method: 'POST', body: data });
       Api.setToken(res.token);

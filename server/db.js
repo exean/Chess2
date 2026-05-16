@@ -56,6 +56,8 @@ async function runMigrations() {
       "ALTER TABLE games ADD COLUMN white_deleted_at DATETIME NULL",
       "ALTER TABLE games ADD COLUMN black_deleted_at DATETIME NULL",
       "ALTER TABLE games MODIFY COLUMN final_fen VARCHAR(255) NULL",
+      "ALTER TABLE users ADD COLUMN email VARCHAR(120) NULL",
+      "ALTER TABLE users ADD UNIQUE INDEX uniq_email (email)",
     ];
     for (const stmt of addColumns) {
       try { await conn.query(stmt); }

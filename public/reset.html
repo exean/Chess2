@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1d23" />
+  <title>Chess2 - Passwort zurücksetzen</title>
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="page-reset">
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="Chess hoch zwei - Startseite">Chess<span class="brand-mark" aria-hidden="true">2</span></a>
+    <div class="topbar-spacer"></div>
+  </header>
+
+  <main class="lobby">
+    <section class="card hero">
+      <h1>Neues Passwort</h1>
+      <p class="muted">Vergib unten ein neues Passwort. Der Reset-Link ist 1 Stunde gültig und kann nur einmal verwendet werden.</p>
+    </section>
+
+    <section class="card">
+      <form id="reset-form">
+        <label>Neues Passwort
+          <input type="password" name="password" minlength="6" required autocomplete="new-password" />
+        </label>
+        <label>Passwort bestätigen
+          <input type="password" name="password2" minlength="6" required autocomplete="new-password" />
+        </label>
+        <p id="reset-error" class="error hidden" role="alert" aria-live="assertive"></p>
+        <p id="reset-success" class="muted hidden" role="status" aria-live="polite"></p>
+        <button type="submit" class="btn btn-primary">Passwort setzen</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    (function () {
+      const Api = window.Chess2Api;
+      const form = document.getElementById('reset-form');
+      const errEl = document.getElementById('reset-error');
+      const okEl = document.getElementById('reset-success');
+      const token = new URLSearchParams(location.search).get('token');
+      if (!token) {
+        errEl.textContent = 'Kein Reset-Token im Link. Bitte fordere einen neuen an.';
+        errEl.classList.remove('hidden');
+        form.classList.add('hidden');
+        return;
+      }
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errEl.classList.add('hidden');
+        okEl.classList.add('hidden');
+        const data = Object.fromEntries(new FormData(form));
+        if (data.password !== data.password2) {
+          errEl.textContent = 'Die Passwörter stimmen nicht überein.';
+          errEl.classList.remove('hidden');
+          return;
+        }
+        try {
+          await Api.request('/api/auth/reset', { method: 'POST', body: { token, password: data.password } });
+          okEl.textContent = 'Passwort geändert. Du kannst dich nun einloggen.';
+          okEl.classList.remove('hidden');
+          form.classList.add('hidden');
+          setTimeout(() => { location.href = '/'; }, 2500);
+        } catch (err) {
+          errEl.textContent = err.message;
+          errEl.classList.remove('hidden');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
