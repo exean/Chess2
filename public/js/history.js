@@ -180,6 +180,11 @@
       home.className = 'btn btn-ghost';
       home.textContent = '← Lobby';
       els.authArea.appendChild(home);
+      const friends = document.createElement('a');
+      friends.href = '/friends.html';
+      friends.className = 'btn btn-ghost';
+      friends.textContent = 'Freunde';
+      els.authArea.appendChild(friends);
       const logout = document.createElement('button');
       logout.className = 'btn btn-ghost';
       logout.textContent = 'Logout (' + user.username + ')';

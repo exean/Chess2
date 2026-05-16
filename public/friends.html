@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1d23" />
+  <title>Chess2 - Freunde</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="apple-touch-icon" href="/icons/icon.svg" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Chess2" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="page-friends">
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="Chess hoch zwei - Startseite">Chess<span class="brand-mark" aria-hidden="true">2</span></a>
+    <div class="topbar-spacer"></div>
+    <div id="auth-area" class="auth-area"></div>
+  </header>
+
+  <main class="lobby">
+    <section class="card hero">
+      <h1>Freunde</h1>
+      <p class="muted">Sende eine Freundschaftsanfrage an einen registrierten Spieler. Sobald sie angenommen ist, erscheint er in deiner Freundesliste. Wenn ihr euch entfreundet, verschwindet die Freundschaft bei beiden.</p>
+      <p id="auth-required" class="muted hidden">Du musst <a href="/">eingeloggt</a> sein, um Freunde zu verwalten.</p>
+    </section>
+
+    <section class="card" id="card-request">
+      <h3>Neue Anfrage senden</h3>
+      <form id="add-form">
+        <div class="row">
+          <label>Username
+            <input type="text" id="add-username" maxlength="32" placeholder="z.B. alice" autocomplete="off" required />
+          </label>
+        </div>
+        <p id="add-error" class="error hidden" role="alert" aria-live="assertive"></p>
+        <p id="add-success" class="muted hidden" role="status" aria-live="polite"></p>
+        <button type="submit" class="btn btn-primary">Anfrage senden</button>
+      </form>
+    </section>
+
+    <section class="card hidden" id="card-incoming" aria-labelledby="incoming-heading">
+      <h3 id="incoming-heading">Eingegangene Anfragen</h3>
+      <ul id="incoming-list" class="list"></ul>
+    </section>
+
+    <section class="card hidden" id="card-outgoing" aria-labelledby="outgoing-heading">
+      <h3 id="outgoing-heading">Gesendete Anfragen</h3>
+      <ul id="outgoing-list" class="list"></ul>
+    </section>
+
+    <section class="card" id="card-friends" aria-labelledby="friends-heading">
+      <h3 id="friends-heading">Meine Freunde</h3>
+      <ul id="friends-list" class="list"><li class="muted">Lade...</li></ul>
+    </section>
+  </main>
+
+  <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="confirm-title">
+    <div class="modal-content small">
+      <h2 id="confirm-title">Freund entfernen?</h2>
+      <p class="muted" id="confirm-detail">Die Freundschaft wird bei euch beiden gelöscht. Eine neue Anfrage ist jederzeit möglich.</p>
+      <div class="row">
+        <button id="confirm-yes" class="btn btn-danger">Entfernen</button>
+        <button id="confirm-no" class="btn btn-ghost">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/friends.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloading) return;
+        reloading = true;
+        location.reload();
+      });
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

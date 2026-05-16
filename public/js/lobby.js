@@ -75,6 +75,11 @@
   function renderAuth() {
     if (user) {
       els.authArea.innerHTML = '';
+      const friends = document.createElement('a');
+      friends.href = '/friends.html';
+      friends.className = 'btn btn-ghost';
+      friends.textContent = 'Freunde';
+      els.authArea.appendChild(friends);
       const history = document.createElement('a');
       history.href = '/history.html';
       history.className = 'btn btn-ghost';

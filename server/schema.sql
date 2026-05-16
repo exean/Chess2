@@ -65,3 +65,18 @@ CREATE TABLE IF NOT EXISTS bot_sessions (
   KEY idx_user (user_id),
   CONSTRAINT fk_bot_session_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS friendships (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  requester_id   INT UNSIGNED NOT NULL,
+  addressee_id   INT UNSIGNED NOT NULL,
+  status         VARCHAR(16) NOT NULL DEFAULT 'pending',  -- pending | accepted
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  responded_at   DATETIME NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_pair (requester_id, addressee_id),
+  KEY idx_addressee (addressee_id),
+  KEY idx_status (status),
+  CONSTRAINT fk_friend_requester FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_friend_addressee FOREIGN KEY (addressee_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
