@@ -66,6 +66,48 @@
       </form>
     </section>
 
+    <section class="card hidden" id="card-piece-sets" aria-labelledby="piece-sets-heading">
+      <h3 id="piece-sets-heading">Figuren-Sätze</h3>
+      <p class="muted">SVG-Figurensätze für die Anzeige am Brett. Jeder Satz braucht 12 Dateien (w/b × P, N, B, R, Q, K). Fehlende Figuren können später nachgereicht werden - der Satz steht erst zur Auswahl, wenn er vollständig ist.</p>
+      <ul id="piece-sets-list" class="list"><li class="muted">Lade...</li></ul>
+
+      <details class="piece-set-form-wrap">
+        <summary class="btn btn-primary">Neuen Satz importieren</summary>
+        <form id="piece-set-form" class="piece-set-form" autocomplete="off">
+          <div class="row">
+            <label>Set-ID *
+              <input type="text" id="ps-id" required pattern="^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$" maxlength="32" placeholder="z.B. classic-wood" />
+            </label>
+            <label>Anzeigename *
+              <input type="text" id="ps-name" required maxlength="80" placeholder="Classic Wood" />
+            </label>
+          </div>
+          <div class="row">
+            <label>Urheber
+              <input type="text" id="ps-author" maxlength="120" placeholder="z.B. Cburnett" />
+            </label>
+            <label>Quelle / URL
+              <input type="url" id="ps-source" maxlength="300" placeholder="https://..." />
+            </label>
+          </div>
+          <div class="row">
+            <label>Lizenz
+              <input type="text" id="ps-license" maxlength="200" placeholder="z.B. CC BY-SA 3.0" />
+            </label>
+          </div>
+          <p class="muted small">SVG-Dateien wählen (Multi-Select) oder ein ZIP-Archiv. Bei standardkonformen Namen (<code>wp.svg</code>, <code>wn.svg</code>, ..., <code>bk.svg</code>) werden die Slots automatisch zugeordnet, sonst manuell.</p>
+          <input type="file" id="ps-files" multiple accept=".svg,image/svg+xml,.zip,application/zip" />
+          <div id="ps-grid" class="piece-grid" aria-label="Figuren-Slots"></div>
+          <p id="ps-error" class="error hidden" role="alert"></p>
+          <p id="ps-status" class="muted hidden" role="status" aria-live="polite"></p>
+          <div class="row form-actions">
+            <button type="submit" class="btn btn-primary">Speichern</button>
+            <button type="button" class="btn btn-ghost" id="ps-reset">Abbrechen</button>
+          </div>
+        </form>
+      </details>
+    </section>
+
     <section class="card hidden" id="card-users" aria-labelledby="users-heading">
       <h3 id="users-heading">Benutzer <span id="users-count" class="muted"></span></h3>
       <div class="row">

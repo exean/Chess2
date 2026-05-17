@@ -12,7 +12,7 @@ const { router: authRouter, attachUser } = require('./auth');
 const { router: gamesRouter } = require('./games');
 const { router: botSessionsRouter } = require('./bot-sessions');
 const { router: friendsRouter } = require('./friends');
-const { publicRouter: adminPublicRouter, adminRouter } = require('./admin');
+const { publicRouter: adminPublicRouter, adminRouter, listInstalledSets } = require('./admin');
 const { dbAvailable, runMigrations } = require('./db');
 const { registerHandlers, saveAllBotSessions } = require('./socket');
 
@@ -35,23 +35,18 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Discover installed piece sets: subdirectories of public/pieces/ that contain
-// all 12 SVG files (w/b pieces for the 6 standard types). Lets users add a
-// new set by dropping a folder in - no code change required.
+// all 12 SVG files (w/b pieces for the 6 standard types). The display name
+// comes from meta.json when present, otherwise the dir name is title-cased.
 app.get('/api/piece-sets', (_req, res) => {
-  const fs = require('fs');
-  const dir = path.join(__dirname, '..', 'public', 'pieces');
-  let entries = [];
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { /* dir missing - empty */ }
-  const out = [];
-  for (const e of entries) {
-    if (!e.isDirectory()) continue;
-    const setDir = path.join(dir, e.name);
-    const required = ['p','n','b','r','q','k'].flatMap((t) => [`w${t}.svg`, `b${t}.svg`]);
-    const ok = required.every((f) => {
-      try { return fs.statSync(path.join(setDir, f)).isFile(); } catch { return false; }
-    });
-    if (ok) out.push({ id: e.name, name: e.name.charAt(0).toUpperCase() + e.name.slice(1) });
-  }
+  const out = listInstalledSets()
+    .filter((s) => s.complete)
+    .map((s) => ({
+      id: s.id,
+      name: s.meta.name || (s.id.charAt(0).toUpperCase() + s.id.slice(1)),
+      author: s.meta.author || '',
+      sourceUrl: s.meta.sourceUrl || '',
+      license: s.meta.license || '',
+    }));
   res.json({ sets: out });
 });
 
