@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1d23" />
+  <title>Chess2 - Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="page-admin">
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="Chess hoch zwei - Startseite">Chess<span class="brand-mark" aria-hidden="true">2</span></a>
+    <div class="topbar-spacer"></div>
+    <button class="hamburger-toggle" aria-label="Menü öffnen" aria-expanded="false" aria-controls="auth-area" type="button">☰</button>
+    <div id="auth-area" class="auth-area"></div>
+  </header>
+
+  <main class="lobby">
+    <section class="card hero">
+      <h1>Admin-Panel</h1>
+      <p class="muted">Nur für Admin-User. Hier verwaltest du Impressum-Daten und Benutzer.</p>
+      <p id="not-admin" class="error hidden" role="alert">Du brauchst Admin-Rechte, um diese Seite zu sehen.</p>
+    </section>
+
+    <section class="card hidden" id="card-impressum">
+      <h3>Impressum / Datenschutz</h3>
+      <p class="muted">Diese Felder werden auf <a href="/impressum.html">/impressum.html</a> und <a href="/datenschutz.html">/datenschutz.html</a> live gerendert.</p>
+      <form id="settings-form">
+        <div class="row">
+          <label>Anbieter (Name)
+            <input type="text" name="impressum.name" maxlength="120" />
+          </label>
+          <label>Verantwortliche Person (§ 18 MStV)
+            <input type="text" name="impressum.responsible_name" maxlength="120" placeholder="leer = wie Anbieter" />
+          </label>
+        </div>
+        <div class="row">
+          <label>Straße und Hausnummer
+            <input type="text" name="impressum.street" maxlength="160" />
+          </label>
+        </div>
+        <div class="row">
+          <label>PLZ und Ort
+            <input type="text" name="impressum.city" maxlength="120" placeholder="12345 Musterstadt" />
+          </label>
+          <label>Land
+            <input type="text" name="impressum.country" maxlength="60" placeholder="Deutschland" />
+          </label>
+        </div>
+        <div class="row">
+          <label>E-Mail
+            <input type="email" name="impressum.email" maxlength="160" />
+          </label>
+          <label>Telefon (optional)
+            <input type="text" name="impressum.phone" maxlength="60" />
+          </label>
+        </div>
+        <div class="row">
+          <label>Datenschutz: Stand-Datum
+            <input type="text" name="datenschutz.updated_date" maxlength="40" placeholder="z.B. 1. Januar 2026" />
+          </label>
+        </div>
+        <p id="settings-status" class="muted hidden" role="status" aria-live="polite"></p>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </form>
+    </section>
+
+    <section class="card hidden" id="card-users" aria-labelledby="users-heading">
+      <h3 id="users-heading">Benutzer <span id="users-count" class="muted"></span></h3>
+      <div class="row">
+        <label>Suchen
+          <input type="text" id="users-search" placeholder="Username teilweise..." />
+        </label>
+      </div>
+      <ul id="users-list" class="list"><li class="muted">Lade...</li></ul>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <a href="/impressum.html">Impressum</a>
+    <span aria-hidden="true">·</span>
+    <a href="/datenschutz.html">Datenschutz</a>
+  </footer>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

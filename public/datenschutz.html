@@ -23,12 +23,7 @@
 
     <section class="card">
       <h3>1. Verantwortlicher</h3>
-      <p>
-        Verantwortlich im Sinne der DSGVO ist:<br />
-        [Vor- und Nachname]<br />
-        [Anschrift, siehe Impressum]<br />
-        E-Mail: <a href="mailto:[deine-email@beispiel.de]">[deine-email@beispiel.de]</a>
-      </p>
+      <p id="ds-responsible">Lade…</p>
 
       <h3>2. Allgemeines zur Datenverarbeitung</h3>
       <p>
@@ -159,9 +154,7 @@
       </p>
 
       <h3>15. Änderungen</h3>
-      <p>
-        Diese Datenschutzerklärung wird bei Funktionsänderungen aktualisiert. Stand: [Datum eintragen].
-      </p>
+      <p id="ds-changes">Diese Datenschutzerklärung wird bei Funktionsänderungen aktualisiert.</p>
     </section>
   </main>
 
@@ -170,5 +163,30 @@
     <span aria-hidden="true">·</span>
     <a href="/datenschutz.html">Datenschutz</a>
   </footer>
+
+  <script>
+    (async function () {
+      function esc(s) { return String(s || '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[c])); }
+      function todo(text) { return '<span class="muted">[' + esc(text) + ' im Admin-Panel hinterlegen]</span>'; }
+      try {
+        const r = await fetch('/api/impressum');
+        const d = await r.json();
+        const lines = ['Verantwortlich im Sinne der DSGVO ist:'];
+        if (d.name) lines.push(esc(d.name));
+        if (d.street) lines.push(esc(d.street));
+        if (d.city) lines.push(esc(d.city));
+        if (d.country) lines.push(esc(d.country));
+        if (d.email) lines.push('E-Mail: <a href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>');
+        if (lines.length === 1) lines.push(todo('Verantwortliche Person noch nicht hinterlegt'));
+        document.getElementById('ds-responsible').innerHTML = lines.join('<br />');
+        if (d.updatedDate) {
+          document.getElementById('ds-changes').innerHTML =
+            'Diese Datenschutzerklärung wird bei Funktionsänderungen aktualisiert. Stand: ' + esc(d.updatedDate) + '.';
+        }
+      } catch (err) {
+        document.getElementById('ds-responsible').innerHTML = todo('Verantwortliche Person noch nicht hinterlegt');
+      }
+    })();
+  </script>
 </body>
 </html>

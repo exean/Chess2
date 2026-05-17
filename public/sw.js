@@ -3,13 +3,14 @@
  * latest JS/CSS/HTML from the network so deploys propagate immediately.
  * Real-time traffic (Socket.IO) and API calls bypass the cache.
  */
-const CACHE_VERSION = 'chess2-v29';
+const CACHE_VERSION = 'chess2-v30';
 const SHELL = [
   '/',
   '/index.html',
   '/game.html',
   '/history.html',
   '/friends.html',
+  '/admin.html',
   '/impressum.html',
   '/datenschutz.html',
   '/css/style.css',
@@ -24,6 +25,7 @@ const SHELL = [
   '/js/history.js',
   '/js/friends.js',
   '/js/sound.js',
+  '/js/admin.js',
   '/lib/chess-engine.js',
   '/manifest.webmanifest',
   '/icons/icon.svg',

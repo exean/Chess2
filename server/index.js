@@ -12,6 +12,7 @@ const { router: authRouter, attachUser } = require('./auth');
 const { router: gamesRouter } = require('./games');
 const { router: botSessionsRouter } = require('./bot-sessions');
 const { router: friendsRouter } = require('./friends');
+const { publicRouter: adminPublicRouter, adminRouter } = require('./admin');
 const { dbAvailable, runMigrations } = require('./db');
 const { registerHandlers, saveAllBotSessions } = require('./socket');
 
@@ -26,6 +27,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/games', gamesRouter);
 app.use('/api/bot-sessions', botSessionsRouter);
 app.use('/api/friends', friendsRouter);
+app.use('/api', adminPublicRouter);          // GET /api/impressum (public)
+app.use('/api/admin', adminRouter);          // all admin endpoints
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, db: dbAvailable(), time: new Date().toISOString() });

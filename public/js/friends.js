@@ -231,6 +231,13 @@
       history.className = 'btn btn-ghost';
       history.textContent = 'Meine Partien';
       els.authArea.appendChild(history);
+      if (user.is_admin) {
+        const admin = document.createElement('a');
+        admin.href = '/admin.html';
+        admin.className = 'btn btn-ghost';
+        admin.textContent = 'Admin';
+        els.authArea.appendChild(admin);
+      }
       const logout = document.createElement('button');
       logout.className = 'btn btn-ghost';
       logout.textContent = 'Logout (' + user.username + ')';

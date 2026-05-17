@@ -23,24 +23,13 @@
 
     <section class="card">
       <h3>Anbieter</h3>
-      <p>
-        [Vor- und Nachname]<br />
-        [Straße und Hausnummer]<br />
-        [PLZ] [Ort]<br />
-        [Land]
-      </p>
+      <p id="provider-block">Lade…</p>
 
       <h3>Kontakt</h3>
-      <p>
-        E-Mail: <a href="mailto:[deine-email@beispiel.de]">[deine-email@beispiel.de]</a><br />
-        Telefon (optional): [+49 …]
-      </p>
+      <p id="contact-block">Lade…</p>
 
       <h3>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h3>
-      <p>
-        [Vor- und Nachname]<br />
-        [Anschrift wie oben]
-      </p>
+      <p id="responsible-block">Lade…</p>
 
       <h3>EU-Streitschlichtung</h3>
       <p>
@@ -66,8 +55,8 @@
       <h3>Urheberrecht</h3>
       <p>
         Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht.
-        Beiträge Dritter sind als solche gekennzeichnet. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der
-        Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.
+        Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes
+        bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.
       </p>
     </section>
   </main>
@@ -77,5 +66,31 @@
     <span aria-hidden="true">·</span>
     <a href="/datenschutz.html">Datenschutz</a>
   </footer>
+
+  <script>
+    (async function () {
+      function esc(s) { return String(s || '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[c])); }
+      function todo(text) { return '<span class="muted">[' + esc(text) + ' im Admin-Panel hinterlegen]</span>'; }
+      try {
+        const r = await fetch('/api/impressum');
+        const d = await r.json();
+        const provider = [d.name, d.street, [d.city].filter(Boolean).join(' '), d.country]
+          .filter(Boolean).map(esc).join('<br />');
+        document.getElementById('provider-block').innerHTML = provider || todo('Anbieter-Daten noch nicht hinterlegt');
+        const contact = [];
+        if (d.email) contact.push('E-Mail: <a href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>');
+        if (d.phone) contact.push('Telefon: ' + esc(d.phone));
+        document.getElementById('contact-block').innerHTML = contact.join('<br />') || todo('Kontakt noch nicht hinterlegt');
+        const responsibleName = d.responsibleName || d.name;
+        const responsible = [responsibleName, d.street, [d.city].filter(Boolean).join(' ')]
+          .filter(Boolean).map(esc).join('<br />');
+        document.getElementById('responsible-block').innerHTML = responsible || todo('Verantwortliche Person noch nicht hinterlegt');
+      } catch (err) {
+        document.getElementById('provider-block').innerHTML = todo('Impressum noch nicht hinterlegt');
+        document.getElementById('contact-block').innerHTML = todo('Impressum noch nicht hinterlegt');
+        document.getElementById('responsible-block').innerHTML = todo('Impressum noch nicht hinterlegt');
+      }
+    })();
+  </script>
 </body>
 </html>

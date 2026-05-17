@@ -36,10 +36,19 @@ function tokenFromReq(req) {
 
 async function findUserById(id) {
   const rows = await query(
-    'SELECT id, username, rating, games_played, wins, losses, draws FROM users WHERE id = ?',
+    'SELECT id, username, rating, games_played, wins, losses, draws, is_admin, email FROM users WHERE id = ?',
     [id]
   );
-  return rows[0] || null;
+  if (!rows[0]) return null;
+  // MySQL TINYINT(1) comes back as a number - normalise to boolean for the API.
+  rows[0].is_admin = !!rows[0].is_admin;
+  return rows[0];
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Login erforderlich.' });
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin-Rechte erforderlich.' });
+  next();
 }
 
 async function attachUser(req, _res, next) {
@@ -193,4 +202,4 @@ router.get('/leaderboard', async (_req, res) => {
   }
 });
 
-module.exports = { router, attachUser, verifyToken, sign };
+module.exports = { router, attachUser, requireAdmin, verifyToken, sign };

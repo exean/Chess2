@@ -58,6 +58,7 @@ async function runMigrations() {
       "ALTER TABLE games MODIFY COLUMN final_fen VARCHAR(255) NULL",
       "ALTER TABLE users ADD COLUMN email VARCHAR(120) NULL",
       "ALTER TABLE users ADD UNIQUE INDEX uniq_email (email)",
+      "ALTER TABLE users ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0",
     ];
     for (const stmt of addColumns) {
       try { await conn.query(stmt); }
@@ -74,6 +75,16 @@ async function runMigrations() {
     }
     try { await conn.query("CREATE INDEX idx_finished ON games (finished_at)"); }
     catch (err) { /* duplicate index, fine */ }
+    // Bootstrap admin: if ADMIN_USER env var is set, ensure that user has
+    // is_admin = 1. Lets the operator create the first admin without manual
+    // SQL after a fresh install.
+    if (process.env.ADMIN_USER) {
+      try {
+        await conn.query('UPDATE users SET is_admin = 1 WHERE username = ?', [process.env.ADMIN_USER]);
+      } catch (err) {
+        console.warn('Failed to bootstrap admin user:', err.message);
+      }
+    }
     return { ok: true };
   } finally {
     await conn.end();

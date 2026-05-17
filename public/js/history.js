@@ -192,6 +192,13 @@
       friends.className = 'btn btn-ghost';
       friends.textContent = 'Freunde';
       els.authArea.appendChild(friends);
+      if (user.is_admin) {
+        const admin = document.createElement('a');
+        admin.href = '/admin.html';
+        admin.className = 'btn btn-ghost';
+        admin.textContent = 'Admin';
+        els.authArea.appendChild(admin);
+      }
       const logout = document.createElement('button');
       logout.className = 'btn btn-ghost';
       logout.textContent = 'Logout (' + user.username + ')';
