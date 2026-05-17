@@ -215,14 +215,19 @@
       for (let i = 0; i < rows.length; i++) {
         const rank = this.shape.height - 1 - i;
         let file = 0;
+        let numStr = '';
         for (const ch of rows[i]) {
-          if (/\d/.test(ch)) { file += parseInt(ch, 10); continue; }
+          // Empty-square counts can span multiple digits on wide shapes
+          // (hexagon is 16 wide, custom up to 26), so accumulate digits.
+          if (/\d/.test(ch)) { numStr += ch; continue; }
+          if (numStr) { file += parseInt(numStr, 10); numStr = ''; }
           if (ch === '*') { file++; continue; } // non-playable marker - ignore
           const color = ch === ch.toUpperCase() ? W : B;
           const type = ch.toLowerCase();
           this.board[rank][file] = { type, color };
           file++;
         }
+        if (numStr) file += parseInt(numStr, 10);
       }
       this.turn = turn === 'b' ? B : W;
       this.castling.w.k = castle.includes('K');
