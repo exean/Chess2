@@ -312,6 +312,45 @@ input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); ou
 .online-dot.on  { background: var(--good); box-shadow: 0 0 6px color-mix(in oklch, var(--good) 50%, transparent); }
 .online-dot.off { background: var(--fg-dim); opacity: 0.4; }
 
+/* Footer with legal links - sits below all page content, kept understated
+   so it doesn't pull attention from the actual app. */
+.app-footer {
+  margin: var(--space-2xl) auto var(--space-md);
+  padding: var(--space-md);
+  text-align: center;
+  font-size: .78rem;
+  color: var(--fg-dim);
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  max-width: 720px;
+}
+.app-footer a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted color-mix(in oklch, var(--fg-dim) 60%, transparent);
+}
+.app-footer a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Long-form legal prose: tighter typography, generous spacing. */
+.legal-prose .card h3 {
+  margin-top: var(--space-md);
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--fg);
+}
+.legal-prose .card h3:first-child { margin-top: 0; }
+.legal-prose .card p,
+.legal-prose .card ul {
+  margin: var(--space-xs) 0;
+  font-size: .95rem;
+  line-height: 1.55;
+}
+.legal-prose .card ul { padding-left: 1.25em; }
+.legal-prose .card li { margin: var(--space-2xs) 0; }
+
 .history-row { align-items: center; }
 .history-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2xs); }
 .history-line1 { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1d23" />
+  <title>Chess2 - Datenschutzerklärung</title>
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="page-legal">
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="Chess hoch zwei - Startseite">Chess<span class="brand-mark" aria-hidden="true">2</span></a>
+    <div class="topbar-spacer"></div>
+    <a href="/" class="btn btn-ghost">← Lobby</a>
+  </header>
+
+  <main class="lobby legal-prose">
+    <section class="card hero">
+      <h1>Datenschutzerklärung</h1>
+      <p class="muted">Informationen nach Art. 13 und 14 DSGVO darüber, welche personenbezogenen Daten beim Besuch und der Nutzung von Chess² verarbeitet werden.</p>
+    </section>
+
+    <section class="card">
+      <h3>1. Verantwortlicher</h3>
+      <p>
+        Verantwortlich im Sinne der DSGVO ist:<br />
+        [Vor- und Nachname]<br />
+        [Anschrift, siehe Impressum]<br />
+        E-Mail: <a href="mailto:[deine-email@beispiel.de]">[deine-email@beispiel.de]</a>
+      </p>
+
+      <h3>2. Allgemeines zur Datenverarbeitung</h3>
+      <p>
+        Wir verarbeiten personenbezogene Daten nur, soweit dies für die Bereitstellung einer funktionsfähigen Website
+        und unserer Inhalte und Leistungen erforderlich ist oder Du eingewilligt hast (Art. 6 Abs. 1 lit. a, b und f DSGVO).
+        Es gibt <strong>keine Tracker, kein Profiling und keine Werbenetzwerke</strong>.
+      </p>
+
+      <h3>3. Server-Logs und Hosting</h3>
+      <p>
+        Beim Aufruf der Website erhebt der Webserver des Hosters (Plesk-Hosting) automatisch technische Informationen,
+        die Dein Browser übermittelt: IP-Adresse, Datum und Uhrzeit, aufgerufene URL, HTTP-Status, übertragene Datenmenge,
+        User-Agent. Diese Daten werden zur Sicherstellung des Betriebs und zur Abwehr von Angriffen kurzfristig verarbeitet
+        und nach spätestens 14 Tagen gelöscht. Rechtsgrundlage: berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO).
+      </p>
+
+      <h3>4. Nutzer-Konto (optional)</h3>
+      <p>
+        Wenn Du Dich registrierst, speichern wir folgende Daten:
+      </p>
+      <ul>
+        <li>Username (frei wählbar, identifiziert Dich gegenüber anderen Spielern)</li>
+        <li>Passwort als <strong>bcrypt-Hash</strong> (Klartext wird nie gespeichert)</li>
+        <li>E-Mail-Adresse <strong>optional</strong>, nur für Passwort-Reset</li>
+        <li>Elo-Rating und Spielstatistiken (Anzahl Partien, Siege, Niederlagen, Remis)</li>
+        <li>Erstellungszeitpunkt des Kontos</li>
+      </ul>
+      <p>
+        Diese Daten werden bis zur Löschung des Kontos gespeichert. Du kannst eine Löschung jederzeit per E-Mail beantragen.
+        Rechtsgrundlage: Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO).
+      </p>
+
+      <h3>5. Gespielte Partien</h3>
+      <p>
+        Beendete Partien werden in unserer Datenbank gespeichert, wenn mindestens ein Spieler eingeloggt war.
+        Gespeichert werden: die Namen beider Spieler, Brettform, Zeitkontrolle, Zugliste (PGN + JSON),
+        Ergebnis und Zeitstempel. Jeder eingeloggte Teilnehmer kann seine Sicht auf eine Partie über
+        „Meine Partien" → „Löschen" jederzeit entfernen; die Sicht des anderen Spielers bleibt davon unberührt.
+        Sobald beide Seiten ihre Sicht gelöscht haben, wird die Partie endgültig aus der Datenbank entfernt.
+      </p>
+
+      <h3>6. Pausierte Bot-Partien</h3>
+      <p>
+        Wenn Du als eingeloggter Nutzer eine Partie gegen den Computer pausierst oder Deine Verbindung
+        länger als 30 Sekunden abbricht, wird der Spielstand verschlüsselt-frei gespeichert
+        (Brettstellung, Züge, Uhrenstände). Du kannst die Partie aus der Lobby fortsetzen oder verwerfen.
+        Gelöschte oder verworfene Partien werden sofort aus der Datenbank entfernt.
+      </p>
+
+      <h3>7. Freundesliste</h3>
+      <p>
+        Freundschaftsanfragen und -beziehungen werden zwischen den beiden beteiligten Konten gespeichert.
+        Eine Auflösung der Freundschaft löscht den Eintrag bei beiden Seiten. Online-Status (verbunden ja/nein)
+        wird nur zwischen Freunden in Echtzeit signalisiert und nicht persistent gespeichert.
+      </p>
+
+      <h3>8. Passwort-Reset</h3>
+      <p>
+        Forderst Du einen Passwort-Reset an, wird ein zufälliges Token mit 1 Stunde Gültigkeit erzeugt und
+        per E-Mail an die hinterlegte Adresse versendet. Das Token wird nach Verwendung oder Ablauf als
+        verbraucht markiert. Mailversand erfolgt über den im Impressum genannten Hoster oder einen
+        separaten SMTP-Anbieter; bitte beachte dazu die jeweilige Datenschutzerklärung des Anbieters.
+      </p>
+
+      <h3>9. Lokale Speicherung (localStorage)</h3>
+      <p>
+        Zur Verbesserung der Nutzererfahrung speichert Dein Browser lokal:
+      </p>
+      <ul>
+        <li>JWT-Login-Token (damit Du nicht bei jedem Besuch neu anmelden musst)</li>
+        <li>Nickname für anonyme Sessions</li>
+        <li>Letzten Raum-Code mit Seat-Token (für Reconnect bei Verbindungsabbruch)</li>
+        <li>Tonpräferenz (an/aus)</li>
+        <li>Bevorzugtes Figurenset</li>
+      </ul>
+      <p>
+        Diese Daten verlassen Dein Gerät nicht (außer dem JWT, das bei jeder API-Anfrage gesendet wird) und
+        können in den Browser-Einstellungen jederzeit gelöscht werden.
+      </p>
+
+      <h3>10. Service Worker und PWA-Cache</h3>
+      <p>
+        Chess² kann als Progressive Web App installiert werden. Ein Service Worker hält die Anwendungsdateien
+        im Browser-Cache, damit die App auch bei schlechtem Netz schnell startet. Es werden dabei <strong>keine
+        Nutzerdaten</strong> gespeichert oder an Dritte übermittelt.
+      </p>
+
+      <h3>11. WebRTC-Sprachchat</h3>
+      <p>
+        Wenn Du in einer Partie den Sprachchat aktivierst, baut Dein Browser eine direkte Peer-to-Peer-Verbindung
+        zum anderen Spieler auf (WebRTC). <strong>Audio läuft nicht über unseren Server.</strong> Für die NAT-Auflösung
+        werden öffentliche STUN-Server (Google, Cloudflare) angefragt; dabei wird Deine öffentliche IP-Adresse
+        an diese Anbieter übermittelt. Es wird kein Sprach-Inhalt aufgezeichnet.
+      </p>
+
+      <h3>12. Bluetooth (Chessnut-Board)</h3>
+      <p>
+        Die Web-Bluetooth-Anbindung an Chessnut-Air- und Chessnut-Go-Bretter erfolgt direkt zwischen Browser
+        und Brett. <strong>Es werden keine Brett-Daten an unseren Server übertragen</strong>, außer den vom Brett
+        erkannten Zügen, die wie Maus-/Tap-Züge in die laufende Partie eingespeist werden.
+      </p>
+
+      <h3>13. Empfänger der Daten</h3>
+      <p>
+        Daten werden grundsätzlich nicht an Dritte weitergegeben. Ausgenommen sind:
+      </p>
+      <ul>
+        <li>der im Impressum genannte Webhoster (technischer Dienstleister, Auftragsverarbeiter)</li>
+        <li>der SMTP-Anbieter (sofern für Passwort-Reset konfiguriert)</li>
+        <li>STUN-Server-Betreiber (siehe Punkt 11)</li>
+      </ul>
+
+      <h3>14. Deine Rechte</h3>
+      <p>
+        Nach DSGVO hast Du das Recht auf:
+      </p>
+      <ul>
+        <li>Auskunft (Art. 15)</li>
+        <li>Berichtigung (Art. 16)</li>
+        <li>Löschung (Art. 17)</li>
+        <li>Einschränkung der Verarbeitung (Art. 18)</li>
+        <li>Datenübertragbarkeit (Art. 20)</li>
+        <li>Widerspruch (Art. 21)</li>
+        <li>Beschwerde bei einer Aufsichtsbehörde (Art. 77) - z.B. dem für Deinen Wohnsitz zuständigen Landesdatenschutzbeauftragten</li>
+      </ul>
+      <p>
+        Bei Fragen oder zur Geltendmachung Deiner Rechte schreib uns an die im Impressum angegebene E-Mail-Adresse.
+      </p>
+
+      <h3>15. Änderungen</h3>
+      <p>
+        Diese Datenschutzerklärung wird bei Funktionsänderungen aktualisiert. Stand: [Datum eintragen].
+      </p>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <a href="/impressum.html">Impressum</a>
+    <span aria-hidden="true">·</span>
+    <a href="/datenschutz.html">Datenschutz</a>
+  </footer>
+</body>
+</html>
