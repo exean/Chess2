@@ -37,7 +37,7 @@
     if (s === 'octagon') return 'Achteck 14x14: Reihenbreiten 8/10/12/14×8/12/10/8. Standard-Aufstellung in den 8er-Rändern oben und unten, Bauern wandeln am tatsächlichen Brettrand. Unbewertet.';
     if (s === 'hexagon') return 'Sechseck 16x9: Reihen 8/10/12/14/16/14/12/10/8. Aufstellung in den schmalen Außenreihen. Mittlere Reihe ist 16 Felder breit. Unbewertet.';
     if (s === 'cross') return 'Kreuz 12x12: Standard-Aufstellung in der Mitte, Bauern wandeln am tatsächlichen Brettrand (= längere Partien in den Armen). Unbewertet.';
-    if (s === 'hole') return 'Loch 10x10: zentrales 2×2-Loch (e5/f5/e6/f6). Figuren können nicht über das Loch hinweg ziehen, Bauern müssen es per Diagonalschlag oder über die Flanken umlaufen. Unbewertet.';
+    if (s === 'hole') return 'Loch 8x8: zentrales 2×2-Loch (d4/d5/e4/e5). Figuren können nicht über das Loch hinweg ziehen, Bauern müssen es per Diagonalschlag oder über die Flanken umlaufen. Umwandlung erst auf der gegnerischen Grundreihe. Unbewertet.';
     if (s === 'custom') return 'Benutzerdefiniertes Rechteck: 8 Standard-Figuren werden zentriert in der Heimreihe platziert. Bauern wandeln am Brettrand. Unbewertet.';
     return '';
   }

@@ -74,15 +74,14 @@
       kingFile: 6, queensideRookFile: 2, kingsideRookFile: 9,
     },
     hole: {
-      // 10x10 board with a 2x2 hole at the dead center (files e+f, ranks 5+6).
-      // The standard 8-piece set sits centered on the full-width back ranks
-      // and pawns have to detour around the hole through diagonal captures
-      // or by funneling along the edges.
-      width: 10, height: 10,
-      mask: (f, r) => !((f === 4 || f === 5) && (r === 4 || r === 5)),
-      whiteHomeRank: 0, blackHomeRank: 9,
-      pieceFiles: [1, 2, 3, 4, 5, 6, 7, 8],
-      kingFile: 5, queensideRookFile: 1, kingsideRookFile: 8,
+      // 8x8 board with a 2x2 hole at the dead center (files d+e, ranks 4+5).
+      // Standard chess setup with the four central squares carved out, so
+      // pawns have to detour around the hole through diagonal captures.
+      width: 8, height: 8,
+      mask: (f, r) => !((f === 3 || f === 4) && (r === 3 || r === 4)),
+      whiteHomeRank: 0, blackHomeRank: 7,
+      pieceFiles: [0, 1, 2, 3, 4, 5, 6, 7],
+      kingFile: 4, queensideRookFile: 0, kingsideRookFile: 7,
     },
   };
 
@@ -369,10 +368,16 @@
     }
 
     _isPromotionSquare(f, r, color) {
+      // Promote when there are no more playable squares ahead in this file -
+      // i.e. the pawn has reached the literal end of its road. This skips
+      // intermediate dead-ends like the 2x2 hole, where playable squares
+      // continue beyond the gap, while still letting cross-shape arms promote
+      // at their actual outer edge.
       const dir = color === W ? 1 : -1;
-      // Promote whenever the pawn cannot continue forward (edge of the playable
-      // area along this file). This generalizes the standard back-rank rule.
-      return !this.isPlayable(f, r + dir);
+      for (let rr = r + dir; rr >= 0 && rr < this.shape.height; rr += dir) {
+        if (this.isPlayable(f, rr)) return false;
+      }
+      return true;
     }
 
     _pawnMoves(f, r, color, moves) {
